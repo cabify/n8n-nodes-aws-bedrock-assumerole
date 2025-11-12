@@ -1,0 +1,48 @@
+{
+  "name": "AWS Bedrock Basic Example",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "modelId": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "prompt": "Explain what AWS Bedrock is in simple terms.",
+        "maxTokens": 500,
+        "temperature": 0.7
+      },
+      "id": "bedrock-node",
+      "name": "AWS Bedrock (AssumeRole)",
+      "type": "n8n-nodes-aws-bedrock-assumerole.awsBedrockAssumeRole",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "awsAssumeRole": {
+          "id": "your-credential-id",
+          "name": "AWS Bedrock Credentials"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "AWS Bedrock (AssumeRole)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}
