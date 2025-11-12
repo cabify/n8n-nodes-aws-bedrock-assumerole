@@ -15,14 +15,15 @@ An n8n community node for AWS Bedrock with AssumeRole authentication support.
 
 ## Supported Models
 
-- Claude 3.5 Sonnet (v2 & v1)
-- Claude 3 Opus
-- Claude 3 Sonnet
-- Claude 3 Haiku
-- Claude 2.1
-- Claude 2.0
-- Claude Instant 1.2
-
+- **Claude 3.5 Sonnet v2** - `anthropic.claude-3-5-sonnet-20241022-v2:0` (default)
+- **Claude 3.5 Sonnet v1** - `anthropic.claude-3-5-sonnet-20240620-v1:0`
+- **Claude 3.5 Haiku** - `anthropic.claude-3-5-haiku-20241022-v1:0`
+- **Claude 3.7 Sonnet** - `anthropic.claude-3-7-sonnet-20250219-v1:0`
+- **Claude Sonnet 4** - `anthropic.claude-sonnet-4-20250514-v1:0`
+- **Claude Sonnet 4.5** - `anthropic.claude-sonnet-4-5-20250929-v1:0`
+- **Claude Haiku 4.5** - `anthropic.claude-haiku-4-5-20251001-v1:0`
+- **Claude Opus 4** - `anthropic.claude-opus-4-20250514-v1:0`
+- **Claude Opus 4.1** - `anthropic.claude-opus-4-1-20250805-v1:0`
 ## Installation
 
 ### Option 1: Install from npm (Recommended)
@@ -269,6 +270,12 @@ The node provides detailed console logging. Check your n8n logs for:
 - `[AWS Bedrock] Resolved credentials`
 - `[AWS Bedrock] AssumeRole successful`
 - `[AWS Bedrock] Model response received`
+## Developers
+
+This project is developed and maintained by:
+
+- **[@fluty84](https://github.com/fluty84)** - Lead Developer & Business Automation
+- **[@cHiv0rz](https://github.com/cHiv0rz)** - Infrastructure Support
 
 ## Contributing
 
