@@ -277,6 +277,152 @@ This project is developed and maintained by:
 - **[@fluty84](https://github.com/fluty84)** - Lead Developer & Business Automation
 - **[@cHiv0rz](https://github.com/cHiv0rz)** - Infrastructure Support
 
+## Development
+
+### Quick Start with Make
+
+This project includes a Makefile for easy development and deployment:
+
+```bash
+# Show all available commands
+make help
+
+# Development
+make install      # Install dependencies
+make build        # Build the project
+make dev          # Build and start Docker for local testing
+make clean        # Clean build artifacts
+
+# Docker
+make docker-up    # Start Docker containers
+make docker-down  # Stop Docker containers
+make docker-logs  # Show Docker logs
+
+# Deployment
+make publish      # Publish to npm (interactive)
+make sync         # Sync repositories (GitHub + GitLab)
+make release      # Full release: build + publish + sync
+```
+
+### Publishing a New Version
+
+The `make publish` command provides an interactive workflow that handles everything:
+
+#### Step 1: Version Bump
+Choose the type of version bump:
+- **patch** (1.0.2 → 1.0.3) - Bug fixes
+- **minor** (1.0.2 → 1.1.0) - New features (backwards compatible)
+- **major** (1.0.2 → 2.0.0) - Breaking changes
+- **custom** - Specify version manually
+
+#### Step 2: Changelog Generation
+Select the types of changes included:
+1. **Added** - New features
+2. **Changed** - Changes in existing functionality
+3. **Deprecated** - Soon-to-be removed features
+4. **Removed** - Removed features
+5. **Fixed** - Bug fixes
+6. **Security** - Security fixes
+
+#### Step 3: Changelog Entries
+Enter detailed changes for each selected section. The script will automatically:
+- Update `CHANGELOG.md` with proper formatting
+- Follow [Keep a Changelog](https://keepachangelog.com/) format
+- Add the current date
+- Insert the new entry at the top
+
+#### Step 4: Build & Publish
+The script will:
+- Build the project (`npm run build`)
+- Publish to npm with public access
+- Commit changes to `package.json`, `package-lock.json`, and `CHANGELOG.md`
+- Create a git tag (e.g., `v1.0.2`)
+
+#### Example Workflow
+
+```bash
+# Start the publish process
+make publish
+
+# Follow the prompts:
+# 1. Select version bump: 1 (patch)
+# 2. Select change types: 5 (Fixed)
+# 3. Enter changes:
+#    - Fixed custom SVG icons not displaying correctly
+#    - Removed unused code and imports
+# 4. Confirm publish: y
+
+# After publishing, sync repositories
+make sync
+
+# Or do everything in one command:
+make release
+```
+
+### Repository Sync
+
+The project supports syncing to multiple repositories:
+- **GitHub**: https://github.com/cabify/n8n-nodes-aws-bedrock-assumerole
+- **GitLab**: https://gitlab.otters.xyz/platform/business-automation/n8n-nodes-aws-bedrock-assumerole
+
+The `make sync` command will:
+- Push code to both GitHub and GitLab
+- Push all tags to both repositories
+- Verify you're on the main branch
+- Show current status before pushing
+
+### Manual Development
+
+If you prefer not to use Make:
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Start Docker for testing
+docker-compose up -d
+
+# View logs
+docker-compose logs -f n8n
+
+# Publish manually
+npm version patch  # or minor, major
+npm run build
+npm publish --access public
+git push && git push --tags
+```
+
+### Project Structure
+
+```
+n8n-bedrock-node/
+├── credentials/
+│   ├── AwsAssumeRole.credentials.ts  # Credential definition
+│   └── aws.svg                        # AWS icon
+├── nodes/
+│   ├── AwsBedrockAssumeRole.node.ts  # Main node implementation
+│   └── bedrock.svg                    # Bedrock icon
+├── icons/
+│   ├── aws.svg                        # Source AWS icon
+│   └── bedrock.svg                    # Source Bedrock icon
+├── dist/                              # Compiled output
+├── docker-compose.yml                 # Local development setup
+├── Makefile                           # Development commands
+├── publish-npm.sh                     # npm publish script
+├── sync-repos.sh                      # Repository sync script
+└── package.json                       # Package configuration
+```
+
+### Scripts
+
+- `npm run build` - Compile TypeScript and copy icons
+- `npm run copy-icons` - Copy icons to dist directories
+- `npm run lint` - Run ESLint (requires setup)
+- `npm test` - Run tests (if available)
+
 ## Contributing
 
 1. Fork the repository
