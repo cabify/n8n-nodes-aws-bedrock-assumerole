@@ -1,4 +1,4 @@
-.PHONY: help build test clean install dev docker-up docker-down docker-logs sync publish release
+.PHONY: help build test clean install dev docker-up docker-down docker-logs sync publish release push-branch pull-all
 
 # Default target
 help:
@@ -15,6 +15,10 @@ help:
 	@echo "  make docker-up    - Start Docker containers"
 	@echo "  make docker-down  - Stop Docker containers"
 	@echo "  make docker-logs  - Show Docker logs"
+	@echo ""
+	@echo "Git:"
+	@echo "  make push-branch  - Push current branch to both repos and show MR/PR URLs"
+	@echo "  make pull-all     - Pull from both repositories (GitHub + GitLab)"
 	@echo ""
 	@echo "Deployment:"
 	@echo "  make sync         - Sync repositories (GitHub + GitLab)"
@@ -72,6 +76,26 @@ docker-down:
 # Show Docker logs
 docker-logs:
 	@docker-compose logs -f n8n
+
+# Push current branch to both repositories and show MR/PR URLs
+push-branch:
+	@echo "🚀 Pushing current branch to both repositories..."
+	@if [ ! -f push-branch.sh ]; then \
+		echo "❌ push-branch.sh not found"; \
+		exit 1; \
+	fi
+	@chmod +x push-branch.sh
+	@./push-branch.sh
+
+# Pull from both repositories
+pull-all:
+	@echo "🔄 Pulling from both repositories..."
+	@if [ ! -f pull-all.sh ]; then \
+		echo "❌ pull-all.sh not found"; \
+		exit 1; \
+	fi
+	@chmod +x pull-all.sh
+	@./pull-all.sh
 
 # Sync repositories (GitHub + GitLab)
 sync:

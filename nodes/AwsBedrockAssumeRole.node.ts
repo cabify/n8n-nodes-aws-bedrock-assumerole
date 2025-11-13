@@ -261,7 +261,8 @@ export class AwsBedrockAssumeRole implements INodeType {
 
 				// Prepare the request body based on the model
 				let requestBody: any;
-				if (modelId.startsWith('anthropic.claude')) {
+				// Support both inference profiles (us.anthropic.claude) and direct model IDs (anthropic.claude)
+				if (modelId.includes('anthropic.claude')) {
 					requestBody = {
 						anthropic_version: 'bedrock-2023-05-31',
 						max_tokens: maxTokens,
