@@ -122,7 +122,7 @@ export class AwsBedrockAssumeRole implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'AWS Bedrock (AssumeRole)',
 		name: 'awsBedrockAssumeRole',
-		icon: 'fa:cloud',
+		icon: 'file:bedrock.svg',
 		group: ['transform'],
 		version: 1,
 		description: 'Interact with AWS Bedrock using AssumeRole authentication',

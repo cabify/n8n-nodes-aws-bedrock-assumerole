@@ -36,6 +36,14 @@ else
     exit 1
 fi
 
+# Push tags to GitHub
+echo "🏷️  Subiendo tags a GitHub..."
+if git push github --tags; then
+    echo "✅ Tags de GitHub actualizados"
+else
+    echo "⚠️  No se pudieron subir los tags a GitHub (puede que no haya tags nuevos)"
+fi
+
 echo ""
 
 # Push a GitLab (espejo)
@@ -49,6 +57,14 @@ else
     echo "   2. Tienes permisos de escritura"
     echo "   3. Tu clave SSH está configurada"
     exit 1
+fi
+
+# Push tags to GitLab
+echo "🏷️  Subiendo tags a GitLab..."
+if git push gitlab --tags; then
+    echo "✅ Tags de GitLab actualizados"
+else
+    echo "⚠️  No se pudieron subir los tags a GitLab (puede que no haya tags nuevos)"
 fi
 
 echo ""
