@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "modelId": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
         "prompt": "Explain what AWS Bedrock is in simple terms.",
         "maxTokens": 500,
         "temperature": 0.7

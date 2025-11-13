@@ -145,44 +145,44 @@ export class AwsBedrockAssumeRole implements INodeType {
 				options: [
 					{
 						name: 'Claude 3.5 Sonnet v2',
-						value: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+						value: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
 					},
 					{
 						name: 'Claude 3.5 Sonnet v1',
-						value: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+						value: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
 					},
 					{
 						name: 'Claude 3.5 Haiku',
-						value: 'anthropic.claude-3-5-haiku-20241022-v1:0',
+						value: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
 					},
 					{
 						name: 'Claude 3.7 Sonnet',
-						value: 'anthropic.claude-3-7-sonnet-20250219-v1:0',
+						value: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
 					},
 					{
 						name: 'Claude Sonnet 4',
-						value: 'anthropic.claude-sonnet-4-20250514-v1:0',
+						value: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 					},
 					{
 						name: 'Claude Sonnet 4.5',
-						value: 'anthropic.claude-sonnet-4-5-20250929-v1:0',
+						value: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
 					},
 					{
 						name: 'Claude Haiku 4.5',
-						value: 'anthropic.claude-haiku-4-5-20251001-v1:0',
+						value: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
 					},
 					{
 						name: 'Claude Opus 4',
-						value: 'anthropic.claude-opus-4-20250514-v1:0',
+						value: 'us.anthropic.claude-opus-4-20250514-v1:0',
 					},
 					{
 						name: 'Claude Opus 4.1',
-						value: 'anthropic.claude-opus-4-1-20250805-v1:0',
+						value: 'us.anthropic.claude-opus-4-1-20250805-v1:0',
 					},
 				],
-				default: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+				default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
 				required: true,
-				description: 'The model ID to use for the request',
+				description: 'The model ID to use for the request (using inference profiles)',
 			},
 			{
 				displayName: 'Prompt',
