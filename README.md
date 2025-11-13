@@ -15,15 +15,17 @@ An n8n community node for AWS Bedrock with AssumeRole authentication support.
 
 ## Supported Models
 
-- **Claude 3.5 Sonnet v2** - `anthropic.claude-3-5-sonnet-20241022-v2:0` (default)
-- **Claude 3.5 Sonnet v1** - `anthropic.claude-3-5-sonnet-20240620-v1:0`
-- **Claude 3.5 Haiku** - `anthropic.claude-3-5-haiku-20241022-v1:0`
-- **Claude 3.7 Sonnet** - `anthropic.claude-3-7-sonnet-20250219-v1:0`
-- **Claude Sonnet 4** - `anthropic.claude-sonnet-4-20250514-v1:0`
-- **Claude Sonnet 4.5** - `anthropic.claude-sonnet-4-5-20250929-v1:0`
-- **Claude Haiku 4.5** - `anthropic.claude-haiku-4-5-20251001-v1:0`
-- **Claude Opus 4** - `anthropic.claude-opus-4-20250514-v1:0`
-- **Claude Opus 4.1** - `anthropic.claude-opus-4-1-20250805-v1:0`
+This node uses AWS Bedrock inference profiles for optimal performance and availability:
+
+- **Claude 3.5 Sonnet v2** - `us.anthropic.claude-3-5-sonnet-20241022-v2:0` (default)
+- **Claude 3.5 Sonnet v1** - `us.anthropic.claude-3-5-sonnet-20240620-v1:0`
+- **Claude 3.5 Haiku** - `us.anthropic.claude-3-5-haiku-20241022-v1:0`
+- **Claude 3.7 Sonnet** - `us.anthropic.claude-3-7-sonnet-20250219-v1:0`
+- **Claude Sonnet 4** - `us.anthropic.claude-sonnet-4-20250514-v1:0`
+- **Claude Sonnet 4.5** - `us.anthropic.claude-sonnet-4-5-20250929-v1:0`
+- **Claude Haiku 4.5** - `us.anthropic.claude-haiku-4-5-20251001-v1:0`
+- **Claude Opus 4** - `us.anthropic.claude-opus-4-20250514-v1:0`
+- **Claude Opus 4.1** - `us.anthropic.claude-opus-4-1-20250805-v1:0`
 ## Installation
 
 ### Option 1: Install from npm (Recommended)
@@ -171,7 +173,7 @@ The node returns a JSON object with:
 
 ```json
 {
-  "modelId": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
   "prompt": "Your original prompt",
   "response": {
     "content": [

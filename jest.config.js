@@ -1,3 +1,6 @@
+// Load environment variables from .env.test if it exists
+require('dotenv').config({ path: '.env.test' });
+
 module.exports = {
 	preset: 'ts-jest',
 	testEnvironment: 'node',
