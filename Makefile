@@ -92,7 +92,7 @@ publish:
 		exit 1; \
 	fi
 	@chmod +x publish-npm.sh
-	@./publish-npm.sh
+	@/opt/homebrew/bin/bash publish-npm.sh
 
 # Full release: build + publish + sync
 release: build

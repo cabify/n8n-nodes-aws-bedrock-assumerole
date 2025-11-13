@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/opt/homebrew/bin/bash
 
 # Script to publish the package to npm
 # This script handles version bumping, changelog updates, and npm publishing
