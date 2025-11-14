@@ -1,6 +1,8 @@
 import {
 	IExecuteFunctions,
+	ILoadOptionsFunctions,
 	INodeExecutionData,
+	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
 	NodeOperationError,
@@ -249,7 +251,55 @@ export class AwsBedrockAssumeRole implements INodeType {
 				displayName: 'Model ID',
 				name: 'modelId',
 				type: 'options',
-				options: [
+				options: [],
+				typeOptions: {
+					loadOptionsMethod: 'getModelOptions',
+				},
+				default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+				required: true,
+				description:
+					'The model ID to use for the request. When Application Inference Profiles JSON is configured in the credentials, only the models present in that JSON will be listed here.',
+			},
+			{
+				displayName: 'Prompt',
+				name: 'prompt',
+				type: 'string',
+				typeOptions: {
+					rows: 4,
+				},
+				default: '',
+				required: true,
+				description: 'The prompt to send to the model',
+			},
+			{
+				displayName: 'Max Tokens',
+				name: 'maxTokens',
+				type: 'number',
+				default: 1000,
+				required: true,
+				description: 'Maximum number of tokens to generate',
+			},
+			{
+				displayName: 'Temperature',
+				name: 'temperature',
+				type: 'number',
+				typeOptions: {
+					minValue: 0,
+					maxValue: 1,
+					numberStepSize: 0.1,
+				},
+				default: 0.7,
+				required: false,
+				description: 'Controls randomness in the response (0.0 to 1.0)',
+			},
+		],
+	};
+
+
+	methods = {
+		loadOptions: {
+			async getModelOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const staticOptions: INodePropertyOptions[] = [
 					{
 						name: 'Claude 3.5 Sonnet v2',
 						value: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
@@ -286,44 +336,66 @@ export class AwsBedrockAssumeRole implements INodeType {
 						name: 'Claude Opus 4.1',
 						value: 'us.anthropic.claude-opus-4-1-20250805-v1:0',
 					},
-				],
-				default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-				required: true,
-				description: 'The model ID to use for the request (using inference profiles)',
+				];
+
+				let credential: unknown;
+				try {
+					credential = await this.getCredentials('awsAssumeRole');
+				} catch {
+					// If credentials are not configured yet, fall back to static options
+					return staticOptions;
+				}
+
+				const rawCredsRecord = credential as { [key: string]: any };
+				const jsonText = rawCredsRecord.applicationInferenceProfilesJson as string | undefined;
+
+				if (!jsonText || typeof jsonText !== 'string' || !jsonText.trim()) {
+					return staticOptions;
+				}
+
+				let profilesContainer;
+				try {
+					profilesContainer = buildApplicationInferenceProfilesFromJson(jsonText);
+				} catch (error: any) {
+					// Surface the same descriptive message the node would use at execution time
+					throw new Error(error?.message ?? String(error));
+				}
+
+				if (!profilesContainer?.profiles || profilesContainer.profiles.length === 0) {
+					return staticOptions;
+				}
+
+				const labelByModelId: Record<string, string> = {};
+				for (const option of staticOptions) {
+					if (typeof option.value === 'string') {
+						labelByModelId[option.value] = option.name.toString();
+					}
+				}
+
+				const options: INodePropertyOptions[] = [];
+				for (const profile of profilesContainer.profiles) {
+					const modelId = profile.modelId?.toString().trim();
+					if (!modelId) continue;
+
+					if (options.some((option) => option.value === modelId)) {
+						continue;
+					}
+
+					const name = labelByModelId[modelId] || modelId;
+
+					options.push({
+						name,
+						value: modelId,
+					});
+				}
+
+				if (options.length === 0) {
+					return staticOptions;
+				}
+
+				return options;
 			},
-			{
-				displayName: 'Prompt',
-				name: 'prompt',
-				type: 'string',
-				typeOptions: {
-					rows: 4,
-				},
-				default: '',
-				required: true,
-				description: 'The prompt to send to the model',
-			},
-			{
-				displayName: 'Max Tokens',
-				name: 'maxTokens',
-				type: 'number',
-				default: 1000,
-				required: true,
-				description: 'Maximum number of tokens to generate',
-			},
-			{
-				displayName: 'Temperature',
-				name: 'temperature',
-				type: 'number',
-				typeOptions: {
-					minValue: 0,
-					maxValue: 1,
-					numberStepSize: 0.1,
-				},
-				default: 0.7,
-				required: false,
-				description: 'Controls randomness in the response (0.0 to 1.0)',
-			},
-		],
+		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
