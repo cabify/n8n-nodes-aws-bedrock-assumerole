@@ -36,6 +36,113 @@ function resolveBase(credentials: any) {
 	return resolved;
 }
 
+// Resolve effective model identifier based on optional application inference profile configuration
+export function resolveEffectiveModelId(params: {
+	modelId: string;
+	region: string;
+	applicationInferenceProfileAccountId?: string;
+	applicationInferenceProfileId?: string;
+	applicationInferenceProfiles?: unknown;
+}): string {
+	const baseModelId = params.modelId;
+	const accountId = params.applicationInferenceProfileAccountId?.toString().trim();
+
+	// If there is no account configured for application inference profiles, fall back to the base model ID
+	if (!accountId) {
+		return baseModelId;
+	}
+
+	// Prefer per-model profile configuration when available
+	const profilesContainer = params.applicationInferenceProfiles as
+		| {
+				profiles?: Array<{
+					modelId?: string;
+					profileId?: string;
+				}>;
+		  }
+		| undefined;
+
+	let profileId: string | undefined;
+
+	if (profilesContainer?.profiles && Array.isArray(profilesContainer.profiles)) {
+		const matchedProfile = profilesContainer.profiles.find((profile) => {
+			const profileModelId = profile.modelId?.toString().trim();
+			return profileModelId === baseModelId;
+		});
+
+		if (matchedProfile?.profileId) {
+			profileId = matchedProfile.profileId.toString().trim();
+		}
+	}
+
+	// Fallback to legacy single profile id if still provided
+	if (!profileId && params.applicationInferenceProfileId) {
+		profileId = params.applicationInferenceProfileId.toString().trim();
+	}
+
+	if (profileId) {
+		return `arn:aws:bedrock:${params.region}:${accountId}:application-inference-profile/${profileId}`;
+	}
+
+	// No profile configured for this model - use standard model id
+	return baseModelId;
+}
+
+// Build application inference profiles container from JSON mapping in credentials
+export function buildApplicationInferenceProfilesFromJson(jsonText?: string):
+	| {
+			profiles?: Array<{
+				modelId?: string;
+				profileId?: string;
+			}>;
+		}
+	| undefined {
+	if (!jsonText || typeof jsonText !== 'string') {
+		return undefined;
+	}
+
+	const trimmed = jsonText.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+
+	try {
+		const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+
+		if (!parsed || typeof parsed !== 'object') {
+			return undefined;
+		}
+
+		const profiles: Array<{ modelId?: string; profileId?: string }> = [];
+
+		for (const [modelId, profileId] of Object.entries(parsed)) {
+			if (typeof modelId === 'string' && typeof profileId === 'string') {
+				const normalizedModelId = modelId.trim();
+				const normalizedProfileId = profileId.trim();
+
+				if (normalizedModelId && normalizedProfileId) {
+					profiles.push({
+						modelId: normalizedModelId,
+						profileId: normalizedProfileId,
+					});
+				}
+			}
+		}
+
+		if (profiles.length === 0) {
+			return undefined;
+		}
+
+		return { profiles };
+	} catch (error: any) {
+		throw new Error(
+			`Invalid JSON in \"Application Inference Profiles JSON\" credential field: ${
+				error?.message ?? String(error)
+			}`,
+		);
+	}
+}
+
 // Helper function: Get cached credentials or fetch new ones
 async function getCachedOrFetchCredentials(credentials: any) {
 	const cacheKey = `${credentials.accessKeyId}:${credentials.roleArn}`;
@@ -234,16 +341,46 @@ export class AwsBedrockAssumeRole implements INodeType {
 				const resolved = resolveBase(rawCreds);
 
 				// Get node parameters
-				const modelId = this.getNodeParameter('modelId', i) as string;
+				const configuredModelId = this.getNodeParameter('modelId', i) as string;
 				const prompt = this.getNodeParameter('prompt', i) as string;
 				const maxTokens = this.getNodeParameter('maxTokens', i) as number;
 				const temperature = this.getNodeParameter('temperature', i) as number;
 
 				console.log('[AWS Bedrock] Node parameters:', {
-					modelId,
+					configuredModelId,
 					promptLength: prompt.length,
 					maxTokens,
 					temperature,
+				});
+
+				// Resolve effective model identifier (optionally using application inference profile)
+				const rawCredsRecord = rawCreds as { [key: string]: any };
+				const applicationInferenceProfileAccountId =
+					rawCredsRecord.applicationInferenceProfileAccountId as string | undefined;
+				const applicationInferenceProfileId =
+					rawCredsRecord.applicationInferenceProfileId as string | undefined;
+				const applicationInferenceProfilesJson =
+					rawCredsRecord.applicationInferenceProfilesJson as string | undefined;
+
+				let applicationInferenceProfiles = rawCredsRecord.applicationInferenceProfiles as unknown;
+
+				if (!applicationInferenceProfiles && applicationInferenceProfilesJson) {
+					applicationInferenceProfiles = buildApplicationInferenceProfilesFromJson(
+						applicationInferenceProfilesJson,
+					);
+				}
+
+				const effectiveModelId = resolveEffectiveModelId({
+					modelId: configuredModelId,
+					region: resolved.region,
+					applicationInferenceProfileAccountId,
+					applicationInferenceProfileId,
+					applicationInferenceProfiles,
+				});
+
+				console.log('[AWS Bedrock] Resolved model identifier:', {
+					configuredModelId,
+					effectiveModelId,
 				});
 
 				// Get temporary credentials via AssumeRole
@@ -259,10 +396,10 @@ export class AwsBedrockAssumeRole implements INodeType {
 					},
 				});
 
-				// Prepare the request body based on the model
+				// Prepare the request body based on the configured model
 				let requestBody: any;
 				// Support both inference profiles (us.anthropic.claude) and direct model IDs (anthropic.claude)
-				if (modelId.includes('anthropic.claude')) {
+				if (configuredModelId.includes('anthropic.claude')) {
 					requestBody = {
 						anthropic_version: 'bedrock-2023-05-31',
 						max_tokens: maxTokens,
@@ -278,17 +415,21 @@ export class AwsBedrockAssumeRole implements INodeType {
 						requestBody.temperature = temperature;
 					}
 				} else {
-					throw new NodeOperationError(this.getNode(), `Unsupported model: ${modelId}`);
+					throw new NodeOperationError(
+						this.getNode(),
+						`Unsupported model: ${configuredModelId}`,
+					);
 				}
 
 				console.log('[AWS Bedrock] Invoking model:', {
-					modelId,
+					configuredModelId,
+					effectiveModelId,
 					requestBodyKeys: Object.keys(requestBody),
 				});
 
 				// Invoke the model
 				const command = new InvokeModelCommand({
-					modelId,
+					modelId: effectiveModelId,
 					body: JSON.stringify(requestBody),
 					contentType: 'application/json',
 					accept: 'application/json',
@@ -307,16 +448,19 @@ export class AwsBedrockAssumeRole implements INodeType {
 				// Format the output
 				const outputData: INodeExecutionData = {
 					json: {
-						modelId,
+						modelId: effectiveModelId,
+						configuredModelId,
 						prompt,
 						response: responseBody,
 						usage: responseBody.usage,
-						content: responseBody.content?.[0]?.text || responseBody.completion || '',
+						content:
+							responseBody.content?.[0]?.text || responseBody.completion || '',
 						timestamp: new Date().toISOString(),
 					},
 				};
 
 				returnData.push(outputData);
+
 			} catch (error: any) {
 				console.error('[AWS Bedrock] Error processing item:', {
 					itemIndex: i,
