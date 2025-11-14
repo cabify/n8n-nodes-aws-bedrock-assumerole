@@ -1,6 +1,8 @@
 import {
 	IExecuteFunctions,
+	ILoadOptionsFunctions,
 	INodeExecutionData,
+	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
 	NodeOperationError,
@@ -34,6 +36,113 @@ function resolveBase(credentials: any) {
 	});
 
 	return resolved;
+}
+
+// Resolve effective model identifier based on optional application inference profile configuration
+export function resolveEffectiveModelId(params: {
+	modelId: string;
+	region: string;
+	applicationInferenceProfileAccountId?: string;
+	applicationInferenceProfileId?: string;
+	applicationInferenceProfiles?: unknown;
+}): string {
+	const baseModelId = params.modelId;
+	const accountId = params.applicationInferenceProfileAccountId?.toString().trim();
+
+	// If there is no account configured for application inference profiles, fall back to the base model ID
+	if (!accountId) {
+		return baseModelId;
+	}
+
+	// Prefer per-model profile configuration when available
+	const profilesContainer = params.applicationInferenceProfiles as
+		| {
+				profiles?: Array<{
+					modelId?: string;
+					profileId?: string;
+				}>;
+		  }
+		| undefined;
+
+	let profileId: string | undefined;
+
+	if (profilesContainer?.profiles && Array.isArray(profilesContainer.profiles)) {
+		const matchedProfile = profilesContainer.profiles.find((profile) => {
+			const profileModelId = profile.modelId?.toString().trim();
+			return profileModelId === baseModelId;
+		});
+
+		if (matchedProfile?.profileId) {
+			profileId = matchedProfile.profileId.toString().trim();
+		}
+	}
+
+	// Fallback to legacy single profile id if still provided
+	if (!profileId && params.applicationInferenceProfileId) {
+		profileId = params.applicationInferenceProfileId.toString().trim();
+	}
+
+	if (profileId) {
+		return `arn:aws:bedrock:${params.region}:${accountId}:application-inference-profile/${profileId}`;
+	}
+
+	// No profile configured for this model - use standard model id
+	return baseModelId;
+}
+
+// Build application inference profiles container from JSON mapping in credentials
+export function buildApplicationInferenceProfilesFromJson(jsonText?: string):
+	| {
+			profiles?: Array<{
+				modelId?: string;
+				profileId?: string;
+			}>;
+		}
+	| undefined {
+	if (!jsonText || typeof jsonText !== 'string') {
+		return undefined;
+	}
+
+	const trimmed = jsonText.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+
+	try {
+		const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+
+		if (!parsed || typeof parsed !== 'object') {
+			return undefined;
+		}
+
+		const profiles: Array<{ modelId?: string; profileId?: string }> = [];
+
+		for (const [modelId, profileId] of Object.entries(parsed)) {
+			if (typeof modelId === 'string' && typeof profileId === 'string') {
+				const normalizedModelId = modelId.trim();
+				const normalizedProfileId = profileId.trim();
+
+				if (normalizedModelId && normalizedProfileId) {
+					profiles.push({
+						modelId: normalizedModelId,
+						profileId: normalizedProfileId,
+					});
+				}
+			}
+		}
+
+		if (profiles.length === 0) {
+			return undefined;
+		}
+
+		return { profiles };
+	} catch (error: any) {
+		throw new Error(
+			`Invalid JSON in \"Application Inference Profiles JSON\" credential field: ${
+				error?.message ?? String(error)
+			}`,
+		);
+	}
 }
 
 // Helper function: Get cached credentials or fetch new ones
@@ -142,47 +251,14 @@ export class AwsBedrockAssumeRole implements INodeType {
 				displayName: 'Model ID',
 				name: 'modelId',
 				type: 'options',
-				options: [
-					{
-						name: 'Claude 3.5 Sonnet v2',
-						value: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-					},
-					{
-						name: 'Claude 3.5 Sonnet v1',
-						value: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-					},
-					{
-						name: 'Claude 3.5 Haiku',
-						value: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-					},
-					{
-						name: 'Claude 3.7 Sonnet',
-						value: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-					},
-					{
-						name: 'Claude Sonnet 4',
-						value: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-					},
-					{
-						name: 'Claude Sonnet 4.5',
-						value: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
-					},
-					{
-						name: 'Claude Haiku 4.5',
-						value: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-					},
-					{
-						name: 'Claude Opus 4',
-						value: 'us.anthropic.claude-opus-4-20250514-v1:0',
-					},
-					{
-						name: 'Claude Opus 4.1',
-						value: 'us.anthropic.claude-opus-4-1-20250805-v1:0',
-					},
-				],
+				options: [],
+				typeOptions: {
+					loadOptionsMethod: 'getModelOptions',
+				},
 				default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
 				required: true,
-				description: 'The model ID to use for the request (using inference profiles)',
+				description:
+					'The model ID to use for the request. When Application Inference Profiles JSON is configured in the credentials, only the models present in that JSON will be listed here.',
 			},
 			{
 				displayName: 'Prompt',
@@ -219,6 +295,109 @@ export class AwsBedrockAssumeRole implements INodeType {
 		],
 	};
 
+
+	methods = {
+		loadOptions: {
+			async getModelOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const staticOptions: INodePropertyOptions[] = [
+					{
+						name: 'Claude 3.5 Sonnet v2',
+						value: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+					},
+					{
+						name: 'Claude 3.5 Sonnet v1',
+						value: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+					},
+					{
+						name: 'Claude 3.5 Haiku',
+						value: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+					},
+					{
+						name: 'Claude 3.7 Sonnet',
+						value: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+					},
+					{
+						name: 'Claude Sonnet 4',
+						value: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+					},
+					{
+						name: 'Claude Sonnet 4.5',
+						value: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+					},
+					{
+						name: 'Claude Haiku 4.5',
+						value: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+					},
+					{
+						name: 'Claude Opus 4',
+						value: 'us.anthropic.claude-opus-4-20250514-v1:0',
+					},
+					{
+						name: 'Claude Opus 4.1',
+						value: 'us.anthropic.claude-opus-4-1-20250805-v1:0',
+					},
+				];
+
+				let credential: unknown;
+				try {
+					credential = await this.getCredentials('awsAssumeRole');
+				} catch {
+					// If credentials are not configured yet, fall back to static options
+					return staticOptions;
+				}
+
+				const rawCredsRecord = credential as { [key: string]: any };
+				const jsonText = rawCredsRecord.applicationInferenceProfilesJson as string | undefined;
+
+				if (!jsonText || typeof jsonText !== 'string' || !jsonText.trim()) {
+					return staticOptions;
+				}
+
+				let profilesContainer;
+				try {
+					profilesContainer = buildApplicationInferenceProfilesFromJson(jsonText);
+				} catch (error: any) {
+					// Surface the same descriptive message the node would use at execution time
+					throw new Error(error?.message ?? String(error));
+				}
+
+				if (!profilesContainer?.profiles || profilesContainer.profiles.length === 0) {
+					return staticOptions;
+				}
+
+				const labelByModelId: Record<string, string> = {};
+				for (const option of staticOptions) {
+					if (typeof option.value === 'string') {
+						labelByModelId[option.value] = option.name.toString();
+					}
+				}
+
+				const options: INodePropertyOptions[] = [];
+				for (const profile of profilesContainer.profiles) {
+					const modelId = profile.modelId?.toString().trim();
+					if (!modelId) continue;
+
+					if (options.some((option) => option.value === modelId)) {
+						continue;
+					}
+
+					const name = labelByModelId[modelId] || modelId;
+
+					options.push({
+						name,
+						value: modelId,
+					});
+				}
+
+				if (options.length === 0) {
+					return staticOptions;
+				}
+
+				return options;
+			},
+		},
+	};
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -234,16 +413,46 @@ export class AwsBedrockAssumeRole implements INodeType {
 				const resolved = resolveBase(rawCreds);
 
 				// Get node parameters
-				const modelId = this.getNodeParameter('modelId', i) as string;
+				const configuredModelId = this.getNodeParameter('modelId', i) as string;
 				const prompt = this.getNodeParameter('prompt', i) as string;
 				const maxTokens = this.getNodeParameter('maxTokens', i) as number;
 				const temperature = this.getNodeParameter('temperature', i) as number;
 
 				console.log('[AWS Bedrock] Node parameters:', {
-					modelId,
+					configuredModelId,
 					promptLength: prompt.length,
 					maxTokens,
 					temperature,
+				});
+
+				// Resolve effective model identifier (optionally using application inference profile)
+				const rawCredsRecord = rawCreds as { [key: string]: any };
+				const applicationInferenceProfileAccountId =
+					rawCredsRecord.applicationInferenceProfileAccountId as string | undefined;
+				const applicationInferenceProfileId =
+					rawCredsRecord.applicationInferenceProfileId as string | undefined;
+				const applicationInferenceProfilesJson =
+					rawCredsRecord.applicationInferenceProfilesJson as string | undefined;
+
+				let applicationInferenceProfiles = rawCredsRecord.applicationInferenceProfiles as unknown;
+
+				if (!applicationInferenceProfiles && applicationInferenceProfilesJson) {
+					applicationInferenceProfiles = buildApplicationInferenceProfilesFromJson(
+						applicationInferenceProfilesJson,
+					);
+				}
+
+				const effectiveModelId = resolveEffectiveModelId({
+					modelId: configuredModelId,
+					region: resolved.region,
+					applicationInferenceProfileAccountId,
+					applicationInferenceProfileId,
+					applicationInferenceProfiles,
+				});
+
+				console.log('[AWS Bedrock] Resolved model identifier:', {
+					configuredModelId,
+					effectiveModelId,
 				});
 
 				// Get temporary credentials via AssumeRole
@@ -259,10 +468,10 @@ export class AwsBedrockAssumeRole implements INodeType {
 					},
 				});
 
-				// Prepare the request body based on the model
+				// Prepare the request body based on the configured model
 				let requestBody: any;
 				// Support both inference profiles (us.anthropic.claude) and direct model IDs (anthropic.claude)
-				if (modelId.includes('anthropic.claude')) {
+				if (configuredModelId.includes('anthropic.claude')) {
 					requestBody = {
 						anthropic_version: 'bedrock-2023-05-31',
 						max_tokens: maxTokens,
@@ -278,17 +487,21 @@ export class AwsBedrockAssumeRole implements INodeType {
 						requestBody.temperature = temperature;
 					}
 				} else {
-					throw new NodeOperationError(this.getNode(), `Unsupported model: ${modelId}`);
+					throw new NodeOperationError(
+						this.getNode(),
+						`Unsupported model: ${configuredModelId}`,
+					);
 				}
 
 				console.log('[AWS Bedrock] Invoking model:', {
-					modelId,
+					configuredModelId,
+					effectiveModelId,
 					requestBodyKeys: Object.keys(requestBody),
 				});
 
 				// Invoke the model
 				const command = new InvokeModelCommand({
-					modelId,
+					modelId: effectiveModelId,
 					body: JSON.stringify(requestBody),
 					contentType: 'application/json',
 					accept: 'application/json',
@@ -307,16 +520,19 @@ export class AwsBedrockAssumeRole implements INodeType {
 				// Format the output
 				const outputData: INodeExecutionData = {
 					json: {
-						modelId,
+						modelId: effectiveModelId,
+						configuredModelId,
 						prompt,
 						response: responseBody,
 						usage: responseBody.usage,
-						content: responseBody.content?.[0]?.text || responseBody.completion || '',
+						content:
+							responseBody.content?.[0]?.text || responseBody.completion || '',
 						timestamp: new Date().toISOString(),
 					},
 				};
 
 				returnData.push(outputData);
+
 			} catch (error: any) {
 				console.error('[AWS Bedrock] Error processing item:', {
 					itemIndex: i,

@@ -130,7 +130,7 @@ describe('AWS Bedrock Integration Tests', () => {
 				return;
 			}
 
-			const modelId = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
+			const modelId = 'arn:aws:bedrock:us-east-1:616474819159:application-inference-profile/0xumpou8xusv';
 			const prompt = 'Say "Hello from Claude 3.5 Sonnet v2!" and nothing else.';
 
 			const response = await invokeModel(modelId, prompt);

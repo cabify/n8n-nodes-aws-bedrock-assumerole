@@ -1,0 +1,52 @@
+{
+  "name": "AWS Bedrock with Application Inference Profiles",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "modelId": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "prompt": "Say hello from Claude Sonnet 4 using an application inference profile.",
+        "maxTokens": 500,
+        "temperature": 0.7
+      },
+      "id": "bedrock-node",
+      "name": "AWS Bedrock (AssumeRole)",
+      "type": "n8n-nodes-aws-bedrock-assumerole.awsBedrockAssumeRole",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "awsAssumeRole": {
+          "id": "your-credential-id",
+          "name": "AWS Bedrock Credentials"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "AWS Bedrock (AssumeRole)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "meta": {
+    "note": "To use this example, configure an AwsAssumeRole credential with Application Inference Profile Account ID and an Application Inference Profiles JSON mapping { 'us.anthropic.claude-sonnet-4-20250514-v1:0': 'your-profile-id' }. Then update the credential id and name in this workflow to match your environment."
+  }
+}
+
