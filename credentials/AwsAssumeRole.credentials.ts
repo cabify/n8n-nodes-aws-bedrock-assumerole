@@ -9,7 +9,7 @@ export class AwsAssumeRole implements ICredentialType {
 	displayName = 'AWS Assume Role';
 	documentationUrl = 'https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html';
 	icon: Icon = 'file:aws.svg';
-	
+
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Access Key ID',
@@ -55,7 +55,33 @@ export class AwsAssumeRole implements ICredentialType {
 			type: 'number',
 			default: 3600,
 			required: false,
-			description: 'Duration of the assumed role session in seconds (default: 3600 = 1 hour)',
+			description:
+				'Duration of the assumed role session in seconds (default: 3600 = 1 hour)',
 		},
+		{
+			displayName: 'Application Inference Profile Account ID',
+			name: 'applicationInferenceProfileAccountId',
+			type: 'string',
+			default: '',
+			required: false,
+			placeholder: '616474819159',
+			description:
+				'AWS account ID that owns the application inference profiles (optional). If not set, standard model IDs will be used.',
+		},
+		{
+			displayName: 'Application Inference Profiles JSON',
+			name: 'applicationInferenceProfilesJson',
+			type: 'string',
+			default: '',
+			required: false,
+			typeOptions: {
+				rows: 4,
+			},
+			placeholder:
+				'{"us.anthropic.claude-3-5-sonnet-20241022-v2:0": "0xumpou8xusv"}',
+			description:
+				'Optional JSON mapping from model IDs to application inference profile IDs. Keys must be model IDs (for example, us.anthropic.claude-3-5-sonnet-20241022-v2:0) and values must be the corresponding profile IDs. If empty or invalid, standard model IDs will be used.',
+		},
+
 	];
 }

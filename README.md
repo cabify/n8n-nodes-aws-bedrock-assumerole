@@ -144,6 +144,58 @@ And the trust relationship:
 }
 ```
 
+### 4. Application Inference Profiles
+
+This node supports AWS Bedrock Application Inference Profiles, allowing you to route traffic through specific profiles for cost and usage tracking.
+
+#### 4.1. Credential configuration
+
+In the **AWS AssumeRole** credential, you can optionally configure:
+
+- **Application Inference Profile Account ID**: The AWS account ID where your application inference profiles live.
+- **Application Inference Profiles JSON**: A JSON object mapping Bedrock model IDs to application inference profile IDs.
+
+Example JSON:
+
+```json
+{
+  "us.anthropic.claude-3-5-sonnet-20240620-v1:0": "hs4uvikaus5b",
+  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": "0xumpou8xusv",
+  "us.anthropic.claude-3-5-haiku-20241022-v1:0": "abc123haiku"
+}
+```
+
+- The **key** is the Bedrock model ID (for example, `us.anthropic.claude-3-5-sonnet-20241022-v2:0`).
+- The **value** is the application inference profile ID (for example, `0xumpou8xusv`), not the full ARN.
+
+The node then builds the final ARN internally using:
+
+```text
+arn:aws:bedrock:{region}:{account-id}:application-inference-profile/{profile-id}
+```
+
+If the JSON is invalid, the node will fail with a clear error message pointing to the `Application Inference Profiles JSON` field.
+
+#### 4.2. Model dropdown behaviour
+
+The **Model ID** dropdown in the node behaves as follows:
+
+- If **Application Inference Profiles JSON** is **empty or not set**:
+  - The dropdown shows all supported Claude models (the default static list).
+- If **Application Inference Profiles JSON** is **present and valid**:
+  - The dropdown shows **only the models present in that JSON**.
+  - Known model IDs are displayed with friendly names (for example, "Claude 3.5 Sonnet v2"), unknown ones are shown as their raw model ID.
+
+This ensures that, when you configure specific models and profiles in the credential, users of the node can only select those models.
+
+#### 4.3. Backwards compatibility
+
+If no application inference profile mapping is found for a selected model ID, the node will:
+
+1. Try the legacy single **Application Inference Profile ID** field (if configured).
+2. Otherwise, fall back to using the raw model ID directly (original behaviour).
+
+
 ## Usage
 
 ### Basic Workflow Example
