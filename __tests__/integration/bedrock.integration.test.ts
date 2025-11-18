@@ -130,7 +130,7 @@ describe('AWS Bedrock Integration Tests', () => {
 				return;
 			}
 
-			const modelId = 'arn:aws:bedrock:us-east-1:616474819159:application-inference-profile/0xumpou8xusv';
+			const modelId = 'arn:aws:bedrock:us-east-1:616474819159:application-inference-profile/u3m1v4k8ffef';
 			const prompt = 'Say "Hello from Claude 3.5 Sonnet v2!" and nothing else.';
 
 			const response = await invokeModel(modelId, prompt);
@@ -160,7 +160,7 @@ describe('AWS Bedrock Integration Tests', () => {
 				return;
 			}
 
-			const modelId = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+			const modelId = 'us.anthropic.claude-3-5-haiku-20241022-v1:0/u3m1v4k8ffef';
 			const prompt = 'Say "Hello from Claude 3.5 Haiku!" and nothing else.';
 
 			const response = await invokeModel(modelId, prompt);
