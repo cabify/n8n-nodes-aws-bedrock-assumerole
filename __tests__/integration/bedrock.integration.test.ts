@@ -3,15 +3,19 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 
 /**
  * Integration test for AWS Bedrock with AssumeRole
- * 
+ *
  * This test verifies that the Claude 3.5 Sonnet v1 model works correctly
  * with the inference profile format.
- * 
+ *
  * Required environment variables:
  * - AWS_ACCESS_KEY_ID: Base AWS access key
  * - AWS_SECRET_ACCESS_KEY: Base AWS secret key
  * - AWS_ROLE_ARN: Role ARN to assume
  * - AWS_REGION: AWS region (default: us-east-1)
+ *
+ * Optional environment variables for inference profile tests:
+ * - BEDROCK_TEST_MODEL_ID_SONNET_V2: Model identifier (ARN or model ID) for Claude 3.5 Sonnet v2
+ * - BEDROCK_TEST_MODEL_ID_HAIKU: Model identifier (ARN or model ID) for Claude 3.5 Haiku
  */
 
 describe('AWS Bedrock Integration Tests', () => {
@@ -130,8 +134,13 @@ describe('AWS Bedrock Integration Tests', () => {
 				return;
 			}
 
-			const modelId = 'arn:aws:bedrock:us-east-1:616474819159:application-inference-profile/0xumpou8xusv';
+			const modelId = process.env.BEDROCK_TEST_MODEL_ID_SONNET_V2;
 			const prompt = 'Say "Hello from Claude 3.5 Sonnet v2!" and nothing else.';
+
+			if (!modelId) {
+				console.log('Skipping inference profile test - BEDROCK_TEST_MODEL_ID_SONNET_V2 not provided');
+				return;
+			}
 
 			const response = await invokeModel(modelId, prompt);
 
@@ -160,8 +169,13 @@ describe('AWS Bedrock Integration Tests', () => {
 				return;
 			}
 
-			const modelId = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+			const modelId = process.env.BEDROCK_TEST_MODEL_ID_HAIKU;
 			const prompt = 'Say "Hello from Claude 3.5 Haiku!" and nothing else.';
+
+			if (!modelId) {
+				console.log('Skipping inference profile test - BEDROCK_TEST_MODEL_ID_HAIKU not provided');
+				return;
+			}
 
 			const response = await invokeModel(modelId, prompt);
 

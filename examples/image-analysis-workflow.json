@@ -1,0 +1,68 @@
+{
+  "name": "AWS Bedrock Image Analysis Example",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Image analysis with AWS Bedrock",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "image_to_analize",
+              "fieldType": "file",
+              "acceptFileTypes": ".jpg, .jpeg, .png",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "form-trigger-node",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [240, 260],
+      "webhookId": "your-webhook-id"
+    },
+    {
+      "parameters": {
+        "modelId": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "inputType": "image",
+        "imageBinaryPropertyName": "image_to_analize",
+        "prompt": "Describe what is written in this image.",
+        "maxTokens": 500,
+        "temperature": 0.7
+      },
+      "id": "bedrock-image-node",
+      "name": "AWS Bedrock (AssumeRole)",
+      "type": "n8n-nodes-aws-bedrock-assumerole.awsBedrockAssumeRole",
+      "typeVersion": 1,
+      "position": [520, 260],
+      "credentials": {
+        "awsAssumeRole": {
+          "id": "your-credential-id",
+          "name": "AWS Bedrock Credentials"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "AWS Bedrock (AssumeRole)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "meta": {
+    "note": "Example workflow showing how to send an uploaded image plus text prompt to AWS Bedrock using the awsBedrockAssumeRole node."
+  }
+}
+

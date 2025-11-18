@@ -145,6 +145,46 @@ export function buildApplicationInferenceProfilesFromJson(jsonText?: string):
 	}
 }
 
+
+// Build Claude messages API content for text-only or image+text inputs
+export function buildClaudeMessageContent(args: {
+	inputType: 'text' | 'image';
+	prompt: string;
+	binary?: {
+		data?: string;
+		mimeType?: string;
+	};
+}): string | Array<{ type: string; [key: string]: any }> {
+	const trimmedPrompt = typeof args.prompt === 'string' ? args.prompt : '';
+
+	if (args.inputType !== 'image') {
+		return trimmedPrompt;
+	}
+
+	if (!args.binary || typeof args.binary.data !== 'string' || !args.binary.data) {
+		throw new Error('Missing binary image data for image input.');
+	}
+
+	const mediaType =
+		(args.binary.mimeType && args.binary.mimeType.toString().trim()) || 'image/png';
+
+	return [
+		{
+			type: 'image',
+			source: {
+				type: 'base64',
+				media_type: mediaType,
+				data: args.binary.data,
+			},
+		},
+		{
+			type: 'text',
+			text: trimmedPrompt,
+		},
+	];
+}
+
+
 // Helper function: Get cached credentials or fetch new ones
 async function getCachedOrFetchCredentials(credentials: any) {
 	const cacheKey = `${credentials.accessKeyId}:${credentials.roleArn}`;
@@ -259,6 +299,38 @@ export class AwsBedrockAssumeRole implements INodeType {
 				required: true,
 				description:
 					'The model ID to use for the request. When Application Inference Profiles JSON is configured in the credentials, only the models present in that JSON will be listed here.',
+			},
+			{
+				displayName: 'Input Type',
+				name: 'inputType',
+				type: 'options',
+				options: [
+					{
+						name: 'Text Only',
+						value: 'text',
+					},
+					{
+						name: 'Text and Image',
+						value: 'image',
+					},
+				],
+				default: 'text',
+				required: true,
+				description:
+					'Choose whether to send only text or a combination of image and text to the model.',
+			},
+			{
+				displayName: 'Image Binary Property',
+				name: 'imageBinaryPropertyName',
+				type: 'string',
+				default: 'data',
+				required: false,
+				description: 'Name of the binary property that contains the image to analyze.',
+				displayOptions: {
+					show: {
+						inputType: ['image'],
+					},
+				},
 			},
 			{
 				displayName: 'Prompt',
@@ -414,12 +486,19 @@ export class AwsBedrockAssumeRole implements INodeType {
 
 				// Get node parameters
 				const configuredModelId = this.getNodeParameter('modelId', i) as string;
+				const inputType = this.getNodeParameter('inputType', i) as 'text' | 'image';
 				const prompt = this.getNodeParameter('prompt', i) as string;
 				const maxTokens = this.getNodeParameter('maxTokens', i) as number;
 				const temperature = this.getNodeParameter('temperature', i) as number;
+				const imageBinaryPropertyName =
+					inputType === 'image'
+						? (this.getNodeParameter('imageBinaryPropertyName', i) as string)
+						: undefined;
 
 				console.log('[AWS Bedrock] Node parameters:', {
 					configuredModelId,
+					inputType,
+					imageBinaryPropertyName,
 					promptLength: prompt.length,
 					maxTokens,
 					temperature,
@@ -472,13 +551,52 @@ export class AwsBedrockAssumeRole implements INodeType {
 				let requestBody: any;
 				// Support both inference profiles (us.anthropic.claude) and direct model IDs (anthropic.claude)
 				if (configuredModelId.includes('anthropic.claude')) {
+					let messageContent: any;
+
+					if (inputType === 'image') {
+						if (!imageBinaryPropertyName) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'Image binary property name must be set when input type is "Text and Image".',
+							);
+						}
+
+						const item = items[i];
+
+						if (!item.binary || !item.binary[imageBinaryPropertyName]) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Binary property "${imageBinaryPropertyName}" with image data is missing on item.`,
+							);
+						}
+
+						const binaryData = item.binary[imageBinaryPropertyName] as {
+							data?: string;
+							mimeType?: string;
+						};
+
+						messageContent = buildClaudeMessageContent({
+							inputType,
+							prompt,
+							binary: {
+								data: binaryData.data,
+								mimeType: binaryData.mimeType,
+							},
+						});
+					} else {
+						messageContent = buildClaudeMessageContent({
+							inputType: 'text',
+							prompt,
+						});
+					}
+
 					requestBody = {
 						anthropic_version: 'bedrock-2023-05-31',
 						max_tokens: maxTokens,
 						messages: [
 							{
 								role: 'user',
-								content: prompt,
+								content: messageContent,
 							},
 						],
 					};

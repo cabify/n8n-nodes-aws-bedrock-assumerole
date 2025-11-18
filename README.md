@@ -219,6 +219,22 @@ Analyze the following customer feedback and provide:
 Customer feedback: "The service was okay but the wait time was too long."
 ```
 
+
+### Image analysis workflow (Text and Image input)
+
+To analyze an image together with a text prompt using Claude models that support vision capabilities:
+
+1. Add a **Form Trigger** (or any node that outputs binary data) with a file field, for example labeled `image_to_analize`.
+2. Connect that node to **AWS Bedrock (AssumeRole)**.
+3. Configure the Bedrock node:
+   - **Model ID**: Select any Claude model that supports image input (for example, Claude Sonnet 4).
+   - **Input Type**: Set to `Text and Image`.
+   - **Image Binary Property**: Set to the name of the binary field that contains the uploaded image. For a Form Trigger file field labeled `image_to_analize`, the binary key is also `image_to_analize`.
+   - **Prompt**: Provide the instruction you want to send together with the image, for example: `Describe what is written in this image.`
+4. Execute the workflow by submitting the form with an image file.
+
+You can import the ready-to-use example workflow from `examples/image-analysis-workflow.json`.
+
 ### Response Format
 
 The node returns a JSON object with:
