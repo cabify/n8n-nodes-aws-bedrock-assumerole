@@ -44,7 +44,8 @@
       "dist/credentials/AwsAssumeRole.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/AwsBedrockAssumeRole.node.js"
+      "dist/nodes/AwsBedrockAssumeRole.node.js",
+      "dist/nodes/AwsBedrockChatModel.node.js"
     ]
   },
   "devDependencies": {
@@ -63,6 +64,7 @@
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.0.0",
     "@aws-sdk/client-sts": "^3.0.0",
+    "@langchain/core": "^0.3.0",
     "n8n-workflow": "*"
   },
   "peerDependencies": {

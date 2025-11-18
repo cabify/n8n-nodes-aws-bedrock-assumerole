@@ -8,10 +8,18 @@ An n8n community node for AWS Bedrock with AssumeRole authentication support.
 
 - 🔐 **AssumeRole Authentication**: Secure cross-account access using AWS STS AssumeRole
 - 🤖 **Multiple Claude Models**: Support for Claude 3.5 Sonnet, Claude 3 Opus, Sonnet, Haiku, and more
+- 🤝 **AI Agent Compatible**: Includes Chat Model sub-node for use with n8n AI Agent
 - ⚡ **Credential Caching**: Automatic caching of temporary credentials with expiration handling
 - 🛡️ **Error Handling**: Comprehensive error handling and logging
 - 🔄 **Batch Processing**: Process multiple items in a single workflow execution
 - 📊 **Usage Tracking**: Detailed usage information and response metadata
+
+## Available Nodes
+
+This package includes **two nodes**:
+
+1. **AWS Bedrock (AssumeRole)** - Standalone node for direct AWS Bedrock API calls
+2. **AWS Bedrock Chat Model** - Chat Model sub-node for use with n8n AI Agent
 
 ## Supported Models
 
@@ -198,7 +206,31 @@ If no application inference profile mapping is found for a selected model ID, th
 
 ## Usage
 
-### Basic Workflow Example
+### Option 1: Using with AI Agent (Recommended for Conversational AI)
+
+The **AWS Bedrock Chat Model** node is designed to work with n8n's AI Agent node, enabling conversational AI workflows with tool calling, memory, and more.
+
+#### Setup Steps:
+
+1. **Add an AI Agent node** to your workflow
+2. **Connect the AWS Bedrock Chat Model node** to the "Chat Model" input of the AI Agent
+3. **Select your credential** in the Chat Model node (the same AWS AssumeRole credential)
+4. **Choose your model** (e.g., Claude 3.5 Sonnet v2)
+5. **Add tools** (optional): Connect tool nodes like Vector Store, Calculator, HTTP Request, etc.
+6. **Add memory** (optional): Connect a memory node for conversation history
+
+#### Benefits of Using with AI Agent:
+
+- ✅ **Tool Calling**: The AI can use tools to fetch data, perform calculations, etc.
+- ✅ **Conversation Memory**: Maintain context across multiple interactions
+- ✅ **Structured Output**: Parse responses into structured data
+- ✅ **Multi-step Reasoning**: The agent can plan and execute complex tasks
+
+### Option 2: Direct API Calls (Standalone Node)
+
+For simple, direct API calls without AI Agent features, use the **AWS Bedrock (AssumeRole)** node.
+
+#### Basic Workflow Example
 
 1. **Add the AWS Bedrock (AssumeRole) node** to your workflow
 2. **Select your credential** (created in step 2 above)
@@ -208,7 +240,7 @@ If no application inference profile mapping is found for a selected model ID, th
    - **Max Tokens**: Set the maximum response length (default: 1000)
    - **Temperature**: Control randomness (0.0 = deterministic, 1.0 = very random)
 
-### Example Prompt
+#### Example Prompt
 
 ```
 Analyze the following customer feedback and provide:
@@ -220,7 +252,9 @@ Customer feedback: "The service was okay but the wait time was too long."
 ```
 
 
-### Image analysis workflow (Text and Image input)
+### Image Analysis Workflow (Text and Image input)
+
+**Note**: Image analysis is currently only available with the standalone **AWS Bedrock (AssumeRole)** node, not with the Chat Model sub-node.
 
 To analyze an image together with a text prompt using Claude models that support vision capabilities:
 
@@ -235,9 +269,9 @@ To analyze an image together with a text prompt using Claude models that support
 
 You can import the ready-to-use example workflow from `examples/image-analysis-workflow.json`.
 
-### Response Format
+### Response Format (Standalone Node)
 
-The node returns a JSON object with:
+The **AWS Bedrock (AssumeRole)** standalone node returns a JSON object with:
 
 ```json
 {
@@ -263,6 +297,18 @@ The node returns a JSON object with:
   "timestamp": "2024-11-12T17:46:00.000Z"
 }
 ```
+
+## Comparison: Chat Model vs Standalone Node
+
+| Feature | AWS Bedrock Chat Model | AWS Bedrock (AssumeRole) |
+|---------|------------------------|--------------------------|
+| **Use Case** | AI Agent workflows | Direct API calls |
+| **Tool Calling** | ✅ Yes (via AI Agent) | ❌ No |
+| **Conversation Memory** | ✅ Yes (via AI Agent) | ❌ No |
+| **Image Analysis** | ❌ Not yet supported | ✅ Yes |
+| **Batch Processing** | ❌ No | ✅ Yes |
+| **Structured Output** | ✅ Yes (via AI Agent) | ⚠️ Manual parsing |
+| **Best For** | Conversational AI, agents with tools | Simple prompts, image analysis, batch jobs |
 
 ## Development
 
