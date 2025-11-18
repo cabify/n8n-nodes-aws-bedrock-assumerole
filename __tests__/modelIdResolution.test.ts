@@ -1,5 +1,6 @@
 import {
 	buildApplicationInferenceProfilesFromJson,
+	buildClaudeMessageContent,
 	resolveEffectiveModelId,
 } from '../nodes/AwsBedrockAssumeRole.node';
 
@@ -109,4 +110,52 @@ describe('buildApplicationInferenceProfilesFromJson', () => {
 		);
 	});
 });
+
+describe('buildClaudeMessageContent', () => {
+		it('returns plain prompt for text input type', () => {
+			const result = buildClaudeMessageContent({
+				inputType: 'text',
+				prompt: 'Hello from text',
+			});
+
+			expect(result).toBe('Hello from text');
+		});
+
+		it('builds multimodal content array for image input type', () => {
+			const result = buildClaudeMessageContent({
+				inputType: 'image',
+				prompt: 'Describe the image',
+				binary: {
+					data: 'base64-image-data',
+					mimeType: 'image/jpeg',
+				},
+			});
+
+			expect(Array.isArray(result)).toBe(true);
+			const blocks = result as any[];
+
+			expect(blocks[0]).toEqual({
+				type: 'image',
+				source: {
+					type: 'base64',
+					media_type: 'image/jpeg',
+					data: 'base64-image-data',
+				},
+			});
+
+			expect(blocks[1]).toEqual({
+				type: 'text',
+				text: 'Describe the image',
+			});
+		});
+
+		it('throws when binary data is missing for image input type', () => {
+			expect(() =>
+				buildClaudeMessageContent({
+					inputType: 'image',
+					prompt: 'Describe the image',
+				}),
+			).toThrow('Missing binary image data for image input.');
+		});
+	});
 
