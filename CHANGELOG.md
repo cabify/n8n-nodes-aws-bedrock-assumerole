@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-11-19
+
+### Fixed
+- Fix message type detection using `_getType()` method instead of `instanceof` to handle cross-version compatibility issues with LangChain
+- Resolve "messages: at least one message is required" error caused by message type detection failure
+
 ## [1.3.1] - 2025-11-19
 
 ### Fixed

@@ -159,28 +159,32 @@ class AwsBedrockChatModelInstance extends BaseChatModel {
 		const conversationMessages: Array<{ role: string; content: any }> = [];
 
 		for (const message of messages) {
-			if (message instanceof SystemMessage) {
+			// Use _getType() method instead of instanceof to handle cross-version compatibility
+			const messageType = message._getType();
+
+			if (messageType === 'system' || message instanceof SystemMessage) {
 				systemMessages.push(message.content as string);
-			} else if (message instanceof HumanMessage) {
+			} else if (messageType === 'human' || message instanceof HumanMessage) {
 				conversationMessages.push({
 					role: 'user',
 					content: message.content as string,
 				});
-			} else if (message instanceof AIMessage) {
+			} else if (messageType === 'ai' || message instanceof AIMessage) {
 				// Handle AI messages with tool calls
 				const content: any[] = [];
+				const aiMessage = message as AIMessage;
 
 				// Add text content if present
-				if (message.content) {
+				if (aiMessage.content) {
 					content.push({
 						type: 'text',
-						text: message.content as string,
+						text: aiMessage.content as string,
 					});
 				}
 
 				// Add tool use blocks if present
-				if (message.tool_calls && message.tool_calls.length > 0) {
-					for (const toolCall of message.tool_calls) {
+				if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
+					for (const toolCall of aiMessage.tool_calls) {
 						content.push({
 							type: 'tool_use',
 							id: toolCall.id || `tool_${Date.now()}`,
@@ -194,14 +198,14 @@ class AwsBedrockChatModelInstance extends BaseChatModel {
 					role: 'assistant',
 					content: content.length === 1 && content[0].type === 'text' ? content[0].text : content,
 				});
-			} else if (message instanceof ToolMessage) {
+			} else if (messageType === 'tool' || message instanceof ToolMessage) {
 				// Handle tool result messages
 				conversationMessages.push({
 					role: 'user',
 					content: [
 						{
 							type: 'tool_result',
-							tool_use_id: message.tool_call_id,
+							tool_use_id: (message as any).tool_call_id,
 							content: message.content as string,
 						},
 					],
