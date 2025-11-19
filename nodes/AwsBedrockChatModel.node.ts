@@ -241,6 +241,15 @@ class AwsBedrockChatModelInstance extends BaseChatModel {
 		// Convert messages to Claude format
 		const { system, messages: claudeMessages } = this.convertMessagesToClaudeFormat(messages);
 
+		// Validate that we have at least one conversation message
+		if (!claudeMessages || claudeMessages.length === 0) {
+			throw new Error(
+				'No conversation messages found. The AI Agent must provide at least one user message. ' +
+				'Received messages: ' + JSON.stringify(messages.map(m => ({ type: m._getType(), content: m.content }))) +
+				'. This usually happens when the AI Agent node is not properly configured or when using promptType="define" without a text prompt.'
+			);
+		}
+
 		// Build request body for Claude models
 		const requestBody: any = {
 			anthropic_version: 'bedrock-2023-05-31',
