@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2024-12-29
+
+### Fixed
+- Move @langchain/core from dependencies to peerDependencies to prevent installation conflicts with n8n's built-in @langchain/core
+
+## [1.3.2] - 2025-11-19
+
+### Fixed
+- Fix message type detection using `_getType()` method instead of `instanceof` to handle cross-version compatibility issues with LangChain
+- Resolve "messages: at least one message is required" error caused by message type detection failure
+
+## [1.3.1] - 2025-11-19
+
+### Fixed
+- Add validation and descriptive error message when AI Agent sends empty messages array to prevent "messages: at least one message is required" error from AWS Bedrock API
+
+## [1.3.0] - 2025-11-18
+
+### Added
+- sub-node to generate a chat model compatible with AI Agent
+
+
 ## [1.2.0] - 2025-11-18
 
 ### Added
