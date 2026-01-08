@@ -5,17 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.4] - 2025-12-29
+## [1.4.0] - 2026-01-08
 
 ### Added
-- fix lanchain/core dependencie
+- **Image Generation Support**: Added support for Amazon Nova Canvas v1 and Amazon Titan Image Generator v2 models
+- New image generation parameters with conditional UI fields:
+  - Image Width (512, 768, 1024, 1280)
+  - Image Height (512, 768, 1024, 1280)
+  - Image Quality (standard/premium)
+  - Number of Images (1-4)
+  - Seed for reproducible generation
+  - Negative Prompt (what NOT to include in the image)
+  - CFG Scale (Titan Image only) - controls how closely the image follows the prompt
+- Generated images are returned as binary data, ready for saving or further processing
+- New helper functions: `isImageGenerationModel()`, `buildImageGenerationRequestBody()`
+- 11 new unit tests for image generation functionality
 
-# Changelog
+### Changed
+- Text model parameters (Max Tokens, Temperature, Input Type) are now hidden when an image generation model is selected
+- Model dropdown now includes image generation models alongside Claude models
 
-All notable changes to this project will be documented in this file.
+## [1.3.4] - 2025-12-29
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Fixed
+- Fix @langchain/core dependency issue
 
 ## [1.3.3] - 2024-12-29
 
