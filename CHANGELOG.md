@@ -8,18 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.0] - 2026-01-08
 
 ### Added
-- support for image models titan and nova canvas
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.4.0] - 2026-01-08
-
-### Added
 - **Image Generation Support**: Added support for Amazon Nova Canvas v1 and Amazon Titan Image Generator v2 models
 - New image generation parameters with conditional UI fields:
   - Image Width (512, 768, 1024, 1280)
