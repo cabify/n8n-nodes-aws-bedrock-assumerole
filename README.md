@@ -8,6 +8,7 @@ An n8n community node for AWS Bedrock with AssumeRole authentication support.
 
 - 🔐 **AssumeRole Authentication**: Secure cross-account access using AWS STS AssumeRole
 - 🤖 **Multiple Claude Models**: Support for Claude 3.5 Sonnet, Claude 3 Opus, Sonnet, Haiku, and more
+- 🎨 **Image Generation**: Support for Amazon Nova Canvas and Titan Image Generator models
 - 🤝 **AI Agent Compatible**: Includes Chat Model sub-node for use with n8n AI Agent
 - ⚡ **Credential Caching**: Automatic caching of temporary credentials with expiration handling
 - 🛡️ **Error Handling**: Comprehensive error handling and logging
@@ -25,6 +26,8 @@ This package includes **two nodes**:
 
 This node uses AWS Bedrock inference profiles for optimal performance and availability:
 
+### Text/Chat Models (Claude)
+
 - **Claude 3.5 Sonnet v2** - `us.anthropic.claude-3-5-sonnet-20241022-v2:0` (default)
 - **Claude 3.5 Sonnet v1** - `us.anthropic.claude-3-5-sonnet-20240620-v1:0`
 - **Claude 3.5 Haiku** - `us.anthropic.claude-3-5-haiku-20241022-v1:0`
@@ -34,6 +37,11 @@ This node uses AWS Bedrock inference profiles for optimal performance and availa
 - **Claude Haiku 4.5** - `us.anthropic.claude-haiku-4-5-20251001-v1:0`
 - **Claude Opus 4** - `us.anthropic.claude-opus-4-20250514-v1:0`
 - **Claude Opus 4.1** - `us.anthropic.claude-opus-4-1-20250805-v1:0`
+
+### Image Generation Models
+
+- **Amazon Nova Canvas v1** - `amazon.nova-canvas-v1:0` - State-of-the-art image generation
+- **Amazon Titan Image Generator v2** - `amazon.titan-image-generator-v2:0` - High-quality image generation with advanced controls
 ## Installation
 
 ### Option 1: Install from npm (Recommended)
@@ -269,7 +277,60 @@ To analyze an image together with a text prompt using Claude models that support
 
 You can import the ready-to-use example workflow from `examples/image-analysis-workflow.json`.
 
-### Response Format (Standalone Node)
+### Image Generation Workflow (Nova Canvas / Titan Image)
+
+Generate images from text prompts using Amazon Nova Canvas or Titan Image Generator models:
+
+1. Add the **AWS Bedrock (AssumeRole)** node to your workflow.
+2. Configure the Bedrock node:
+   - **Model ID**: Select `Amazon Nova Canvas v1` or `Amazon Titan Image Generator v2`.
+   - **Prompt**: Describe the image you want to generate (e.g., "A futuristic city at sunset with flying cars").
+   - **Negative Prompt** (optional): Describe what NOT to include (e.g., "blurry, low quality, text").
+   - **Image Width/Height**: Choose the dimensions (512, 768, 1024, or 1280 pixels).
+   - **Image Quality**: Select `standard` or `premium`.
+   - **Number of Images**: Generate 1-4 images at once.
+   - **Seed** (optional): Set a specific seed for reproducible results (0 = random).
+   - **CFG Scale** (Titan Image only): Controls how closely the image follows the prompt (1-15).
+
+3. The node outputs binary image data that can be:
+   - Saved to disk using the **Write Binary File** node
+   - Uploaded to cloud storage (S3, Google Drive, etc.)
+   - Sent via email or messaging platforms
+   - Further processed in your workflow
+
+#### Image Generation Response Format
+
+For image generation models, the node returns:
+
+```json
+{
+  "modelId": "arn:aws:bedrock:us-east-1:123456789:application-inference-profile/abc123",
+  "configuredModelId": "amazon.nova-canvas-v1:0",
+  "prompt": "A futuristic city at sunset",
+  "imageIndex": 0,
+  "totalImages": 1,
+  "imageWidth": 1024,
+  "imageHeight": 1024,
+  "imageQuality": "standard",
+  "timestamp": "2026-01-08T10:00:00.000Z"
+}
+```
+
+The generated image is available in the `binary.data` property as a PNG file.
+
+#### Application Inference Profiles for Image Models
+
+Configure image generation models in your credentials JSON just like Claude models:
+
+```json
+{
+  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": "0xumpou8xusv",
+  "amazon.nova-canvas-v1:0": "b3tcu2bezmae",
+  "amazon.titan-image-generator-v2:0": "12fut6sh2vgi"
+}
+```
+
+### Response Format (Standalone Node - Text Models)
 
 The **AWS Bedrock (AssumeRole)** standalone node returns a JSON object with:
 
@@ -306,9 +367,10 @@ The **AWS Bedrock (AssumeRole)** standalone node returns a JSON object with:
 | **Tool Calling** | ✅ Yes (via AI Agent) | ❌ No |
 | **Conversation Memory** | ✅ Yes (via AI Agent) | ❌ No |
 | **Image Analysis** | ❌ Not yet supported | ✅ Yes |
+| **Image Generation** | ❌ No | ✅ Yes (Nova Canvas, Titan Image) |
 | **Batch Processing** | ❌ No | ✅ Yes |
 | **Structured Output** | ✅ Yes (via AI Agent) | ⚠️ Manual parsing |
-| **Best For** | Conversational AI, agents with tools | Simple prompts, image analysis, batch jobs |
+| **Best For** | Conversational AI, agents with tools | Simple prompts, image analysis/generation, batch jobs |
 
 ## Development
 

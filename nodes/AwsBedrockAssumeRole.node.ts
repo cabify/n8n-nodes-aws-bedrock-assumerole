@@ -146,6 +146,63 @@ export function buildApplicationInferenceProfilesFromJson(jsonText?: string):
 }
 
 
+// Image generation model IDs
+const IMAGE_GENERATION_MODELS = [
+	'amazon.nova-canvas-v1:0',
+	'amazon.titan-image-generator-v2:0',
+];
+
+// Check if a model ID is an image generation model
+export function isImageGenerationModel(modelId: string): boolean {
+	return IMAGE_GENERATION_MODELS.some((id) => modelId.includes(id));
+}
+
+// Build request body for image generation models (Nova Canvas, Titan Image)
+export function buildImageGenerationRequestBody(args: {
+	modelId: string;
+	prompt: string;
+	negativePrompt?: string;
+	width: number;
+	height: number;
+	quality: 'standard' | 'premium';
+	numberOfImages: number;
+	seed?: number;
+	cfgScale?: number;
+}): Record<string, unknown> {
+	const requestBody: Record<string, unknown> = {
+		taskType: 'TEXT_IMAGE',
+		textToImageParams: {
+			text: args.prompt,
+		} as Record<string, unknown>,
+		imageGenerationConfig: {
+			width: args.width,
+			height: args.height,
+			quality: args.quality,
+			numberOfImages: args.numberOfImages,
+		} as Record<string, unknown>,
+	};
+
+	// Add negative prompt if provided
+	if (args.negativePrompt && args.negativePrompt.trim()) {
+		(requestBody.textToImageParams as Record<string, unknown>).negativeText = args.negativePrompt.trim();
+	}
+
+	// Add seed if provided and not 0 (0 means random)
+	if (args.seed && args.seed > 0) {
+		(requestBody.imageGenerationConfig as Record<string, unknown>).seed = args.seed;
+	} else {
+		// Generate random seed for reproducibility logging
+		(requestBody.imageGenerationConfig as Record<string, unknown>).seed = Math.floor(Math.random() * 858993460);
+	}
+
+	// Add cfgScale for Titan Image models
+	if (args.modelId.includes('titan-image') && args.cfgScale !== undefined) {
+		(requestBody.imageGenerationConfig as Record<string, unknown>).cfgScale = args.cfgScale;
+	}
+
+	return requestBody;
+}
+
 // Build Claude messages API content for text-only or image+text inputs
 export function buildClaudeMessageContent(args: {
 	inputType: 'text' | 'image';
@@ -300,6 +357,7 @@ export class AwsBedrockAssumeRole implements INodeType {
 				description:
 					'The model ID to use for the request. When Application Inference Profiles JSON is configured in the credentials, only the models present in that JSON will be listed here.',
 			},
+			// ===== Text/Chat Model Fields (Claude) =====
 			{
 				displayName: 'Input Type',
 				name: 'inputType',
@@ -318,6 +376,14 @@ export class AwsBedrockAssumeRole implements INodeType {
 				required: true,
 				description:
 					'Choose whether to send only text or a combination of image and text to the model.',
+				displayOptions: {
+					hide: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
 			},
 			{
 				displayName: 'Image Binary Property',
@@ -329,6 +395,12 @@ export class AwsBedrockAssumeRole implements INodeType {
 				displayOptions: {
 					show: {
 						inputType: ['image'],
+					},
+					hide: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
 					},
 				},
 			},
@@ -350,6 +422,14 @@ export class AwsBedrockAssumeRole implements INodeType {
 				default: 1000,
 				required: true,
 				description: 'Maximum number of tokens to generate',
+				displayOptions: {
+					hide: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
 			},
 			{
 				displayName: 'Temperature',
@@ -363,6 +443,154 @@ export class AwsBedrockAssumeRole implements INodeType {
 				default: 0.7,
 				required: false,
 				description: 'Controls randomness in the response (0.0 to 1.0)',
+				displayOptions: {
+					hide: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			// ===== Image Generation Model Fields (Nova Canvas, Titan Image) =====
+			{
+				displayName: 'Negative Prompt',
+				name: 'negativePrompt',
+				type: 'string',
+				typeOptions: {
+					rows: 2,
+				},
+				default: '',
+				required: false,
+				description: 'Text describing what NOT to include in the generated image (max 512 characters)',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			{
+				displayName: 'Image Width',
+				name: 'imageWidth',
+				type: 'options',
+				options: [
+					{ name: '512', value: 512 },
+					{ name: '768', value: 768 },
+					{ name: '1024', value: 1024 },
+					{ name: '1280', value: 1280 },
+				],
+				default: 1024,
+				required: true,
+				description: 'Width of the generated image in pixels',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			{
+				displayName: 'Image Height',
+				name: 'imageHeight',
+				type: 'options',
+				options: [
+					{ name: '512', value: 512 },
+					{ name: '768', value: 768 },
+					{ name: '1024', value: 1024 },
+					{ name: '1280', value: 1280 },
+				],
+				default: 1024,
+				required: true,
+				description: 'Height of the generated image in pixels',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			{
+				displayName: 'Image Quality',
+				name: 'imageQuality',
+				type: 'options',
+				options: [
+					{ name: 'Standard', value: 'standard' },
+					{ name: 'Premium', value: 'premium' },
+				],
+				default: 'standard',
+				required: true,
+				description: 'Quality of the generated image',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			{
+				displayName: 'Number of Images',
+				name: 'numberOfImages',
+				type: 'number',
+				typeOptions: {
+					minValue: 1,
+					maxValue: 4,
+				},
+				default: 1,
+				required: true,
+				description: 'Number of images to generate (1-4)',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			{
+				displayName: 'Seed',
+				name: 'imageSeed',
+				type: 'number',
+				default: 0,
+				required: false,
+				description: 'Seed for reproducible image generation (0 for random). Range: 0 to 858993459.',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			{
+				displayName: 'CFG Scale',
+				name: 'cfgScale',
+				type: 'number',
+				typeOptions: {
+					minValue: 1,
+					maxValue: 15,
+					numberStepSize: 0.5,
+				},
+				default: 8.0,
+				required: false,
+				description: 'How closely the image follows the prompt (1-15). Higher values = more literal interpretation.',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
 			},
 		],
 	};
@@ -407,6 +635,14 @@ export class AwsBedrockAssumeRole implements INodeType {
 					{
 						name: 'Claude Opus 4.1',
 						value: 'us.anthropic.claude-opus-4-1-20250805-v1:0',
+					},
+					{
+						name: 'Amazon Nova Canvas v1 (Image Generation)',
+						value: 'amazon.nova-canvas-v1:0',
+					},
+					{
+						name: 'Amazon Titan Image Generator v2',
+						value: 'amazon.titan-image-generator-v2:0',
 					},
 				];
 
@@ -486,23 +722,66 @@ export class AwsBedrockAssumeRole implements INodeType {
 
 				// Get node parameters
 				const configuredModelId = this.getNodeParameter('modelId', i) as string;
-				const inputType = this.getNodeParameter('inputType', i) as 'text' | 'image';
 				const prompt = this.getNodeParameter('prompt', i) as string;
-				const maxTokens = this.getNodeParameter('maxTokens', i) as number;
-				const temperature = this.getNodeParameter('temperature', i) as number;
-				const imageBinaryPropertyName =
-					inputType === 'image'
-						? (this.getNodeParameter('imageBinaryPropertyName', i) as string)
-						: undefined;
+				const isImageModel = isImageGenerationModel(configuredModelId);
 
-				console.log('[AWS Bedrock] Node parameters:', {
-					configuredModelId,
-					inputType,
-					imageBinaryPropertyName,
-					promptLength: prompt.length,
-					maxTokens,
-					temperature,
-				});
+				// Get parameters based on model type
+				let inputType: 'text' | 'image' = 'text';
+				let maxTokens = 1000;
+				let temperature = 0.7;
+				let imageBinaryPropertyName: string | undefined;
+
+				// Image generation parameters
+				let imageWidth = 1024;
+				let imageHeight = 1024;
+				let imageQuality: 'standard' | 'premium' = 'standard';
+				let numberOfImages = 1;
+				let imageSeed = 0;
+				let negativePrompt = '';
+				let cfgScale = 8.0;
+
+				if (isImageModel) {
+					// Get image generation parameters
+					imageWidth = this.getNodeParameter('imageWidth', i) as number;
+					imageHeight = this.getNodeParameter('imageHeight', i) as number;
+					imageQuality = this.getNodeParameter('imageQuality', i) as 'standard' | 'premium';
+					numberOfImages = this.getNodeParameter('numberOfImages', i) as number;
+					imageSeed = this.getNodeParameter('imageSeed', i, 0) as number;
+					negativePrompt = this.getNodeParameter('negativePrompt', i, '') as string;
+					if (configuredModelId.includes('titan-image')) {
+						cfgScale = this.getNodeParameter('cfgScale', i, 8.0) as number;
+					}
+
+					console.log('[AWS Bedrock] Image generation parameters:', {
+						configuredModelId,
+						promptLength: prompt.length,
+						imageWidth,
+						imageHeight,
+						imageQuality,
+						numberOfImages,
+						imageSeed,
+						negativePromptLength: negativePrompt.length,
+						cfgScale,
+					});
+				} else {
+					// Get text/chat model parameters
+					inputType = this.getNodeParameter('inputType', i) as 'text' | 'image';
+					maxTokens = this.getNodeParameter('maxTokens', i) as number;
+					temperature = this.getNodeParameter('temperature', i) as number;
+					imageBinaryPropertyName =
+						inputType === 'image'
+							? (this.getNodeParameter('imageBinaryPropertyName', i) as string)
+							: undefined;
+
+					console.log('[AWS Bedrock] Text model parameters:', {
+						configuredModelId,
+						inputType,
+						imageBinaryPropertyName,
+						promptLength: prompt.length,
+						maxTokens,
+						temperature,
+					});
+				}
 
 				// Resolve effective model identifier (optionally using application inference profile)
 				const rawCredsRecord = rawCreds as { [key: string]: any };
@@ -549,8 +828,22 @@ export class AwsBedrockAssumeRole implements INodeType {
 
 				// Prepare the request body based on the configured model
 				let requestBody: any;
-				// Support both inference profiles (us.anthropic.claude) and direct model IDs (anthropic.claude)
-				if (configuredModelId.includes('anthropic.claude')) {
+
+				if (isImageModel) {
+					// Build request body for image generation models
+					requestBody = buildImageGenerationRequestBody({
+						modelId: configuredModelId,
+						prompt,
+						negativePrompt,
+						width: imageWidth,
+						height: imageHeight,
+						quality: imageQuality,
+						numberOfImages,
+						seed: imageSeed,
+						cfgScale,
+					});
+				} else if (configuredModelId.includes('anthropic.claude')) {
+					// Build request body for Claude models
 					let messageContent: any;
 
 					if (inputType === 'image') {
@@ -630,26 +923,83 @@ export class AwsBedrockAssumeRole implements INodeType {
 				// Parse the response
 				const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
-				console.log('[AWS Bedrock] Model response received:', {
-					usage: responseBody.usage || 'N/A',
-					contentLength: responseBody.content?.[0]?.text?.length || 0,
-				});
+				// Handle response based on model type
+				if (isImageModel) {
+					// Image generation response
+					const images = responseBody.images as string[] | undefined;
 
-				// Format the output
-				const outputData: INodeExecutionData = {
-					json: {
-						modelId: effectiveModelId,
-						configuredModelId,
-						prompt,
-						response: responseBody,
-						usage: responseBody.usage,
-						content:
-							responseBody.content?.[0]?.text || responseBody.completion || '',
-						timestamp: new Date().toISOString(),
-					},
-				};
+					console.log('[AWS Bedrock] Image generation response received:', {
+						numberOfImages: images?.length || 0,
+						error: responseBody.error || null,
+					});
 
-				returnData.push(outputData);
+					if (responseBody.error) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Image generation failed: ${responseBody.error}`,
+						);
+					}
+
+					if (!images || images.length === 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'No images were generated by the model.',
+						);
+					}
+
+					// Create output for each generated image
+					for (let imgIndex = 0; imgIndex < images.length; imgIndex++) {
+						const base64Image = images[imgIndex];
+						const binaryData = Buffer.from(base64Image, 'base64');
+
+						const outputData: INodeExecutionData = {
+							json: {
+								modelId: effectiveModelId,
+								configuredModelId,
+								prompt,
+								imageIndex: imgIndex,
+								totalImages: images.length,
+								imageWidth,
+								imageHeight,
+								imageQuality,
+								timestamp: new Date().toISOString(),
+							},
+							binary: {
+								data: {
+									data: base64Image,
+									mimeType: 'image/png',
+									fileName: `generated-image-${imgIndex + 1}.png`,
+									fileSize: binaryData.length.toString(),
+									fileExtension: 'png',
+								},
+							},
+						};
+
+						returnData.push(outputData);
+					}
+				} else {
+					// Text/chat model response (Claude)
+					console.log('[AWS Bedrock] Model response received:', {
+						usage: responseBody.usage || 'N/A',
+						contentLength: responseBody.content?.[0]?.text?.length || 0,
+					});
+
+					// Format the output
+					const outputData: INodeExecutionData = {
+						json: {
+							modelId: effectiveModelId,
+							configuredModelId,
+							prompt,
+							response: responseBody,
+							usage: responseBody.usage,
+							content:
+								responseBody.content?.[0]?.text || responseBody.completion || '',
+							timestamp: new Date().toISOString(),
+						},
+					};
+
+					returnData.push(outputData);
+				}
 
 			} catch (error: any) {
 				console.error('[AWS Bedrock] Error processing item:', {
