@@ -157,9 +157,13 @@ export function isImageGenerationModel(modelId: string): boolean {
 	return IMAGE_GENERATION_MODELS.some((id) => modelId.includes(id));
 }
 
+// Image task types supported by Nova Canvas and Titan Image
+export type ImageTaskType = 'TEXT_IMAGE' | 'INPAINTING' | 'OUTPAINTING' | 'IMAGE_VARIATION' | 'BACKGROUND_REMOVAL';
+
 // Build request body for image generation models (Nova Canvas, Titan Image)
 export function buildImageGenerationRequestBody(args: {
 	modelId: string;
+	taskType: ImageTaskType;
 	prompt: string;
 	negativePrompt?: string;
 	width: number;
@@ -168,39 +172,128 @@ export function buildImageGenerationRequestBody(args: {
 	numberOfImages: number;
 	seed?: number;
 	cfgScale?: number;
+	// For editing tasks
+	sourceImageBase64?: string;
+	maskPrompt?: string;
+	maskImageBase64?: string;
+	outpaintingMode?: 'DEFAULT' | 'PRECISE';
+	similarityStrength?: number;
 }): Record<string, unknown> {
-	const requestBody: Record<string, unknown> = {
-		taskType: 'TEXT_IMAGE',
-		textToImageParams: {
-			text: args.prompt,
-		} as Record<string, unknown>,
-		imageGenerationConfig: {
-			width: args.width,
-			height: args.height,
-			quality: args.quality,
-			numberOfImages: args.numberOfImages,
-		} as Record<string, unknown>,
+	const imageGenerationConfig: Record<string, unknown> = {
+		width: args.width,
+		height: args.height,
+		quality: args.quality,
+		numberOfImages: args.numberOfImages,
 	};
-
-	// Add negative prompt if provided
-	if (args.negativePrompt && args.negativePrompt.trim()) {
-		(requestBody.textToImageParams as Record<string, unknown>).negativeText = args.negativePrompt.trim();
-	}
 
 	// Add seed if provided and not 0 (0 means random)
 	if (args.seed && args.seed > 0) {
-		(requestBody.imageGenerationConfig as Record<string, unknown>).seed = args.seed;
+		imageGenerationConfig.seed = args.seed;
 	} else {
 		// Generate random seed for reproducibility logging
-		(requestBody.imageGenerationConfig as Record<string, unknown>).seed = Math.floor(Math.random() * 858993460);
+		imageGenerationConfig.seed = Math.floor(Math.random() * 858993460);
 	}
 
-	// Add cfgScale for Titan Image models
-	if (args.modelId.includes('titan-image') && args.cfgScale !== undefined) {
-		(requestBody.imageGenerationConfig as Record<string, unknown>).cfgScale = args.cfgScale;
+	// Add cfgScale for Titan Image models (not for background removal)
+	if (args.modelId.includes('titan-image') && args.cfgScale !== undefined && args.taskType !== 'BACKGROUND_REMOVAL') {
+		imageGenerationConfig.cfgScale = args.cfgScale;
 	}
 
-	return requestBody;
+	// Build request body based on task type
+	switch (args.taskType) {
+		case 'TEXT_IMAGE': {
+			const textToImageParams: Record<string, unknown> = {
+				text: args.prompt,
+			};
+			if (args.negativePrompt && args.negativePrompt.trim()) {
+				textToImageParams.negativeText = args.negativePrompt.trim();
+			}
+			return {
+				taskType: 'TEXT_IMAGE',
+				textToImageParams,
+				imageGenerationConfig,
+			};
+		}
+
+		case 'INPAINTING': {
+			const inPaintingParams: Record<string, unknown> = {
+				image: args.sourceImageBase64,
+			};
+			if (args.prompt && args.prompt.trim()) {
+				inPaintingParams.text = args.prompt.trim();
+			}
+			if (args.negativePrompt && args.negativePrompt.trim()) {
+				inPaintingParams.negativeText = args.negativePrompt.trim();
+			}
+			// Mask: either maskPrompt or maskImage (not both)
+			if (args.maskImageBase64) {
+				inPaintingParams.maskImage = args.maskImageBase64;
+			} else if (args.maskPrompt && args.maskPrompt.trim()) {
+				inPaintingParams.maskPrompt = args.maskPrompt.trim();
+			}
+			return {
+				taskType: 'INPAINTING',
+				inPaintingParams,
+				imageGenerationConfig,
+			};
+		}
+
+		case 'OUTPAINTING': {
+			const outPaintingParams: Record<string, unknown> = {
+				image: args.sourceImageBase64,
+				text: args.prompt?.trim() || '',
+			};
+			if (args.negativePrompt && args.negativePrompt.trim()) {
+				outPaintingParams.negativeText = args.negativePrompt.trim();
+			}
+			// Mask: either maskPrompt or maskImage (not both)
+			if (args.maskImageBase64) {
+				outPaintingParams.maskImage = args.maskImageBase64;
+			} else if (args.maskPrompt && args.maskPrompt.trim()) {
+				outPaintingParams.maskPrompt = args.maskPrompt.trim();
+			}
+			if (args.outpaintingMode) {
+				outPaintingParams.outPaintingMode = args.outpaintingMode;
+			}
+			return {
+				taskType: 'OUTPAINTING',
+				outPaintingParams,
+				imageGenerationConfig,
+			};
+		}
+
+		case 'IMAGE_VARIATION': {
+			const imageVariationParams: Record<string, unknown> = {
+				images: [args.sourceImageBase64],
+			};
+			if (args.prompt && args.prompt.trim()) {
+				imageVariationParams.text = args.prompt.trim();
+			}
+			if (args.negativePrompt && args.negativePrompt.trim()) {
+				imageVariationParams.negativeText = args.negativePrompt.trim();
+			}
+			if (args.similarityStrength !== undefined) {
+				imageVariationParams.similarityStrength = args.similarityStrength;
+			}
+			return {
+				taskType: 'IMAGE_VARIATION',
+				imageVariationParams,
+				imageGenerationConfig,
+			};
+		}
+
+		case 'BACKGROUND_REMOVAL': {
+			return {
+				taskType: 'BACKGROUND_REMOVAL',
+				backgroundRemovalParams: {
+					image: args.sourceImageBase64,
+				},
+			};
+		}
+
+		default:
+			throw new Error(`Unsupported image task type: ${args.taskType}`);
+	}
 }
 
 // Build Claude messages API content for text-only or image+text inputs
@@ -453,6 +546,175 @@ export class AwsBedrockAssumeRole implements INodeType {
 				},
 			},
 			// ===== Image Generation Model Fields (Nova Canvas, Titan Image) =====
+			// ===== Image Task Type =====
+			{
+				displayName: 'Image Task Type',
+				name: 'imageTaskType',
+				type: 'options',
+				options: [
+					{
+						name: 'Text to Image (Generate)',
+						value: 'TEXT_IMAGE',
+						description: 'Generate a new image from a text prompt',
+					},
+					{
+						name: 'Inpainting (Edit Inside Mask)',
+						value: 'INPAINTING',
+						description: 'Modify areas inside a masked region of an existing image',
+					},
+					{
+						name: 'Outpainting (Edit Outside Mask)',
+						value: 'OUTPAINTING',
+						description: 'Extend or modify areas outside a masked region',
+					},
+					{
+						name: 'Image Variation',
+						value: 'IMAGE_VARIATION',
+						description: 'Create variations of an existing image',
+					},
+					{
+						name: 'Background Removal',
+						value: 'BACKGROUND_REMOVAL',
+						description: 'Remove the background from an image (outputs transparent PNG)',
+					},
+				],
+				default: 'TEXT_IMAGE',
+				required: true,
+				description: 'Type of image task to perform',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+					},
+				},
+			},
+			// ===== Source Image for Editing Tasks =====
+			{
+				displayName: 'Source Image Binary Property',
+				name: 'sourceImageBinaryProperty',
+				type: 'string',
+				default: 'data',
+				required: true,
+				description: 'Name of the binary property containing the source image to edit',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'INPAINTING',
+							'OUTPAINTING',
+							'IMAGE_VARIATION',
+							'BACKGROUND_REMOVAL',
+						],
+					},
+				},
+			},
+			// ===== Mask Prompt (for Inpainting/Outpainting) =====
+			{
+				displayName: 'Mask Prompt',
+				name: 'maskPrompt',
+				type: 'string',
+				typeOptions: {
+					rows: 2,
+				},
+				default: '',
+				required: false,
+				description: 'Text description of the area to mask (e.g., "the sky", "the person\'s face"). Either Mask Prompt or Mask Image is required.',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'INPAINTING',
+							'OUTPAINTING',
+						],
+					},
+				},
+			},
+			// ===== Mask Image Binary Property (optional alternative to Mask Prompt) =====
+			{
+				displayName: 'Mask Image Binary Property',
+				name: 'maskImageBinaryProperty',
+				type: 'string',
+				default: '',
+				required: false,
+				description: 'Optional: Name of the binary property containing a black/white mask image. Black pixels = area to modify, White pixels = area to preserve.',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'INPAINTING',
+							'OUTPAINTING',
+						],
+					},
+				},
+			},
+			// ===== Outpainting Mode =====
+			{
+				displayName: 'Outpainting Mode',
+				name: 'outpaintingMode',
+				type: 'options',
+				options: [
+					{
+						name: 'Default',
+						value: 'DEFAULT',
+						description: 'Allow modification of the image inside the mask for consistency',
+					},
+					{
+						name: 'Precise',
+						value: 'PRECISE',
+						description: 'Prevent modification of the image inside the mask',
+					},
+				],
+				default: 'DEFAULT',
+				required: false,
+				description: 'Controls whether the area inside the mask can be modified for consistency',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'OUTPAINTING',
+						],
+					},
+				},
+			},
+			// ===== Similarity Strength (for Image Variation) =====
+			{
+				displayName: 'Similarity Strength',
+				name: 'similarityStrength',
+				type: 'number',
+				typeOptions: {
+					minValue: 0.2,
+					maxValue: 1.0,
+					numberStepSize: 0.1,
+				},
+				default: 0.7,
+				required: false,
+				description: 'How similar the generated image should be to the input (0.2-1.0). Lower = more variation.',
+				displayOptions: {
+					show: {
+						modelId: [
+							'amazon.nova-canvas-v1:0',
+							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'IMAGE_VARIATION',
+						],
+					},
+				},
+			},
 			{
 				displayName: 'Negative Prompt',
 				name: 'negativePrompt',
@@ -468,6 +730,12 @@ export class AwsBedrockAssumeRole implements INodeType {
 						modelId: [
 							'amazon.nova-canvas-v1:0',
 							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'TEXT_IMAGE',
+							'INPAINTING',
+							'OUTPAINTING',
+							'IMAGE_VARIATION',
 						],
 					},
 				},
@@ -739,8 +1007,18 @@ export class AwsBedrockAssumeRole implements INodeType {
 				let imageSeed = 0;
 				let negativePrompt = '';
 				let cfgScale = 8.0;
+				// Image editing parameters
+				let imageTaskType: ImageTaskType = 'TEXT_IMAGE';
+				let sourceImageBase64: string | undefined;
+				let maskPrompt: string | undefined;
+				let maskImageBase64: string | undefined;
+				let outpaintingMode: 'DEFAULT' | 'PRECISE' = 'DEFAULT';
+				let similarityStrength: number | undefined;
 
 				if (isImageModel) {
+					// Get image task type
+					imageTaskType = this.getNodeParameter('imageTaskType', i, 'TEXT_IMAGE') as ImageTaskType;
+
 					// Get image generation parameters
 					imageWidth = this.getNodeParameter('imageWidth', i) as number;
 					imageHeight = this.getNodeParameter('imageHeight', i) as number;
@@ -752,8 +1030,57 @@ export class AwsBedrockAssumeRole implements INodeType {
 						cfgScale = this.getNodeParameter('cfgScale', i, 8.0) as number;
 					}
 
+					// Get source image for editing tasks
+					const editingTasks: ImageTaskType[] = ['INPAINTING', 'OUTPAINTING', 'IMAGE_VARIATION', 'BACKGROUND_REMOVAL'];
+					if (editingTasks.includes(imageTaskType)) {
+						const sourceImageBinaryProperty = this.getNodeParameter('sourceImageBinaryProperty', i, 'data') as string;
+						const item = items[i];
+
+						if (!item.binary || !item.binary[sourceImageBinaryProperty]) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Binary property "${sourceImageBinaryProperty}" with source image is missing. Please provide an image to edit.`,
+							);
+						}
+
+						const binaryData = item.binary[sourceImageBinaryProperty];
+						sourceImageBase64 = binaryData.data;
+					}
+
+					// Get mask parameters for inpainting/outpainting
+					if (imageTaskType === 'INPAINTING' || imageTaskType === 'OUTPAINTING') {
+						maskPrompt = this.getNodeParameter('maskPrompt', i, '') as string;
+						const maskImageBinaryProperty = this.getNodeParameter('maskImageBinaryProperty', i, '') as string;
+
+						if (maskImageBinaryProperty) {
+							const item = items[i];
+							if (item.binary && item.binary[maskImageBinaryProperty]) {
+								maskImageBase64 = item.binary[maskImageBinaryProperty].data;
+							}
+						}
+
+						// Validate that at least one mask method is provided
+						if (!maskPrompt && !maskImageBase64) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'Either Mask Prompt or Mask Image must be provided for inpainting/outpainting tasks.',
+							);
+						}
+					}
+
+					// Get outpainting mode
+					if (imageTaskType === 'OUTPAINTING') {
+						outpaintingMode = this.getNodeParameter('outpaintingMode', i, 'DEFAULT') as 'DEFAULT' | 'PRECISE';
+					}
+
+					// Get similarity strength for image variation
+					if (imageTaskType === 'IMAGE_VARIATION') {
+						similarityStrength = this.getNodeParameter('similarityStrength', i, 0.7) as number;
+					}
+
 					console.log('[AWS Bedrock] Image generation parameters:', {
 						configuredModelId,
+						imageTaskType,
 						promptLength: prompt.length,
 						imageWidth,
 						imageHeight,
@@ -762,6 +1089,11 @@ export class AwsBedrockAssumeRole implements INodeType {
 						imageSeed,
 						negativePromptLength: negativePrompt.length,
 						cfgScale,
+						hasSourceImage: !!sourceImageBase64,
+						maskPromptLength: maskPrompt?.length || 0,
+						hasMaskImage: !!maskImageBase64,
+						outpaintingMode,
+						similarityStrength,
 					});
 				} else {
 					// Get text/chat model parameters
@@ -833,6 +1165,7 @@ export class AwsBedrockAssumeRole implements INodeType {
 					// Build request body for image generation models
 					requestBody = buildImageGenerationRequestBody({
 						modelId: configuredModelId,
+						taskType: imageTaskType,
 						prompt,
 						negativePrompt,
 						width: imageWidth,
@@ -841,6 +1174,12 @@ export class AwsBedrockAssumeRole implements INodeType {
 						numberOfImages,
 						seed: imageSeed,
 						cfgScale,
+						// Editing task parameters
+						sourceImageBase64,
+						maskPrompt,
+						maskImageBase64,
+						outpaintingMode,
+						similarityStrength,
 					});
 				} else if (configuredModelId.includes('anthropic.claude')) {
 					// Build request body for Claude models

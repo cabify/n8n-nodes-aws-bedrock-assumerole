@@ -318,6 +318,81 @@ For image generation models, the node returns:
 
 The generated image is available in the `binary.data` property as a PNG file.
 
+### Image Editing Workflow (Inpainting, Outpainting, Variations, Background Removal)
+
+Both Nova Canvas and Titan Image Generator support advanced image editing capabilities:
+
+#### Image Task Types
+
+| Task Type | Description | Required Fields |
+|-----------|-------------|-----------------|
+| **Text to Image** | Generate a new image from a text prompt | Prompt |
+| **Inpainting** | Modify areas inside a masked region | Source Image, Mask (prompt or image), Prompt |
+| **Outpainting** | Extend or modify areas outside a masked region | Source Image, Mask (prompt or image), Prompt |
+| **Image Variation** | Create variations of an existing image | Source Image, Prompt (optional) |
+| **Background Removal** | Remove the background (outputs transparent PNG) | Source Image |
+
+#### Inpainting Example
+
+Replace part of an image based on a text description of the area to modify:
+
+1. Add a node that provides an image (e.g., **Read Binary File**, **HTTP Request**, or **Form Trigger**).
+2. Add the **AWS Bedrock (AssumeRole)** node.
+3. Configure:
+   - **Model ID**: Select `Amazon Nova Canvas v1` or `Amazon Titan Image Generator v2`
+   - **Image Task Type**: Select `Inpainting (Edit Inside Mask)`
+   - **Source Image Binary Property**: `data` (or the name of your binary property)
+   - **Mask Prompt**: Describe the area to modify (e.g., "the sky", "the person's shirt")
+   - **Prompt**: Describe what to put in that area (e.g., "a beautiful sunset sky")
+   - **Negative Prompt** (optional): What to avoid
+
+#### Outpainting Example
+
+Extend an image beyond its original boundaries:
+
+1. Provide a source image.
+2. Configure:
+   - **Image Task Type**: Select `Outpainting (Edit Outside Mask)`
+   - **Mask Prompt**: Describe the area to preserve (e.g., "the main subject")
+   - **Prompt**: Describe what to generate in the extended area
+   - **Outpainting Mode**: `Default` (allows blending) or `Precise` (strict boundary)
+
+#### Image Variation Example
+
+Create variations of an existing image:
+
+1. Provide a source image.
+2. Configure:
+   - **Image Task Type**: Select `Image Variation`
+   - **Similarity Strength**: 0.2 (more variation) to 1.0 (more similar to original)
+   - **Prompt** (optional): Guide the variation direction
+
+#### Background Removal Example
+
+Remove the background from an image (outputs transparent PNG):
+
+1. Provide a source image.
+2. Configure:
+   - **Image Task Type**: Select `Background Removal`
+   - No prompt needed - the model automatically detects and removes the background
+
+#### Mask Options
+
+For Inpainting and Outpainting, you can specify the mask in two ways:
+
+1. **Mask Prompt** (recommended): A text description of the area to mask (e.g., "the sky", "the person's face")
+2. **Mask Image**: A binary black/white image where:
+   - **Black pixels** = area to modify
+   - **White pixels** = area to preserve
+
+If both are provided, the Mask Image takes precedence.
+
+#### AWS Documentation
+
+For more details on image editing capabilities, see:
+- [Amazon Nova Canvas User Guide](https://docs.aws.amazon.com/nova/latest/userguide/image-gen-access.html)
+- [Amazon Titan Image Generator User Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/titan-image-models.html)
+
 #### Application Inference Profiles for Image Models
 
 Configure image generation models in your credentials JSON just like Claude models:

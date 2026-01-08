@@ -181,9 +181,11 @@ describe('isImageGenerationModel', () => {
 });
 
 describe('buildImageGenerationRequestBody', () => {
-	it('builds basic request body for Nova Canvas', () => {
+	// TEXT_IMAGE tests
+	it('builds basic TEXT_IMAGE request body for Nova Canvas', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'A beautiful sunset over mountains',
 			width: 1024,
 			height: 1024,
@@ -203,9 +205,10 @@ describe('buildImageGenerationRequestBody', () => {
 		expect((result.imageGenerationConfig as any).seed).toBeDefined();
 	});
 
-	it('includes negative prompt when provided', () => {
+	it('includes negative prompt when provided for TEXT_IMAGE', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.titan-image-generator-v2:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'A cat',
 			negativePrompt: 'blurry, low quality',
 			width: 512,
@@ -221,6 +224,7 @@ describe('buildImageGenerationRequestBody', () => {
 	it('uses provided seed when greater than 0', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'Test prompt',
 			width: 512,
 			height: 512,
@@ -235,6 +239,7 @@ describe('buildImageGenerationRequestBody', () => {
 	it('generates random seed when seed is 0', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'Test prompt',
 			width: 512,
 			height: 512,
@@ -251,6 +256,7 @@ describe('buildImageGenerationRequestBody', () => {
 	it('includes cfgScale for Titan Image models', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.titan-image-generator-v2:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'Test prompt',
 			width: 1024,
 			height: 1024,
@@ -265,6 +271,7 @@ describe('buildImageGenerationRequestBody', () => {
 	it('does not include cfgScale for Nova Canvas models', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'Test prompt',
 			width: 1024,
 			height: 1024,
@@ -279,6 +286,7 @@ describe('buildImageGenerationRequestBody', () => {
 	it('does not include empty negative prompt', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'TEXT_IMAGE',
 			prompt: 'Test prompt',
 			negativePrompt: '   ',
 			width: 512,
@@ -288,6 +296,122 @@ describe('buildImageGenerationRequestBody', () => {
 		});
 
 		expect((result.textToImageParams as any).negativeText).toBeUndefined();
+	});
+
+	// INPAINTING tests
+	it('builds INPAINTING request body with maskPrompt', () => {
+		const result = buildImageGenerationRequestBody({
+			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'INPAINTING',
+			prompt: 'Add a red hat',
+			sourceImageBase64: 'base64-source-image',
+			maskPrompt: 'the head',
+			width: 1024,
+			height: 1024,
+			quality: 'standard',
+			numberOfImages: 1,
+		});
+
+		expect(result.taskType).toBe('INPAINTING');
+		expect((result.inPaintingParams as any).image).toBe('base64-source-image');
+		expect((result.inPaintingParams as any).text).toBe('Add a red hat');
+		expect((result.inPaintingParams as any).maskPrompt).toBe('the head');
+		expect((result.inPaintingParams as any).maskImage).toBeUndefined();
+	});
+
+	it('builds INPAINTING request body with maskImage', () => {
+		const result = buildImageGenerationRequestBody({
+			modelId: 'amazon.titan-image-generator-v2:0',
+			taskType: 'INPAINTING',
+			prompt: 'Replace with flowers',
+			sourceImageBase64: 'base64-source-image',
+			maskImageBase64: 'base64-mask-image',
+			negativePrompt: 'blurry',
+			width: 512,
+			height: 512,
+			quality: 'premium',
+			numberOfImages: 1,
+		});
+
+		expect(result.taskType).toBe('INPAINTING');
+		expect((result.inPaintingParams as any).maskImage).toBe('base64-mask-image');
+		expect((result.inPaintingParams as any).maskPrompt).toBeUndefined();
+		expect((result.inPaintingParams as any).negativeText).toBe('blurry');
+	});
+
+	// OUTPAINTING tests
+	it('builds OUTPAINTING request body with outpaintingMode', () => {
+		const result = buildImageGenerationRequestBody({
+			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'OUTPAINTING',
+			prompt: 'Extend the beach',
+			sourceImageBase64: 'base64-source-image',
+			maskPrompt: 'the sky',
+			outpaintingMode: 'PRECISE',
+			width: 1024,
+			height: 1024,
+			quality: 'standard',
+			numberOfImages: 1,
+		});
+
+		expect(result.taskType).toBe('OUTPAINTING');
+		expect((result.outPaintingParams as any).image).toBe('base64-source-image');
+		expect((result.outPaintingParams as any).text).toBe('Extend the beach');
+		expect((result.outPaintingParams as any).maskPrompt).toBe('the sky');
+		expect((result.outPaintingParams as any).outPaintingMode).toBe('PRECISE');
+	});
+
+	// IMAGE_VARIATION tests
+	it('builds IMAGE_VARIATION request body with similarityStrength', () => {
+		const result = buildImageGenerationRequestBody({
+			modelId: 'amazon.titan-image-generator-v2:0',
+			taskType: 'IMAGE_VARIATION',
+			prompt: 'Make it more colorful',
+			sourceImageBase64: 'base64-source-image',
+			similarityStrength: 0.5,
+			width: 1024,
+			height: 1024,
+			quality: 'standard',
+			numberOfImages: 2,
+		});
+
+		expect(result.taskType).toBe('IMAGE_VARIATION');
+		expect((result.imageVariationParams as any).images).toEqual(['base64-source-image']);
+		expect((result.imageVariationParams as any).text).toBe('Make it more colorful');
+		expect((result.imageVariationParams as any).similarityStrength).toBe(0.5);
+	});
+
+	// BACKGROUND_REMOVAL tests
+	it('builds BACKGROUND_REMOVAL request body', () => {
+		const result = buildImageGenerationRequestBody({
+			modelId: 'amazon.nova-canvas-v1:0',
+			taskType: 'BACKGROUND_REMOVAL',
+			prompt: '', // Not used for background removal
+			sourceImageBase64: 'base64-source-image',
+			width: 1024,
+			height: 1024,
+			quality: 'standard',
+			numberOfImages: 1,
+		});
+
+		expect(result.taskType).toBe('BACKGROUND_REMOVAL');
+		expect((result.backgroundRemovalParams as any).image).toBe('base64-source-image');
+		// Background removal should not have imageGenerationConfig
+		expect(result.imageGenerationConfig).toBeUndefined();
+	});
+
+	it('throws error for unsupported task type', () => {
+		expect(() =>
+			buildImageGenerationRequestBody({
+				modelId: 'amazon.nova-canvas-v1:0',
+				taskType: 'INVALID_TASK' as any,
+				prompt: 'Test',
+				width: 1024,
+				height: 1024,
+				quality: 'standard',
+				numberOfImages: 1,
+			}),
+		).toThrow('Unsupported image task type: INVALID_TASK');
 	});
 });
 
