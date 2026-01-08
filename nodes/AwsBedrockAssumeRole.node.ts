@@ -1065,18 +1065,19 @@ export class AwsBedrockAssumeRole implements INodeType {
 						}
 
 						const binaryData = item.binary[sourceImageBinaryProperty];
-						sourceImageBase64 = binaryData.data;
+
+						// Use getBinaryDataBuffer to properly retrieve binary data (handles filesystem storage)
+						const binaryBuffer = await this.helpers.getBinaryDataBuffer(i, sourceImageBinaryProperty);
+						sourceImageBase64 = binaryBuffer.toString('base64');
 
 						// Validate MIME type - Nova Canvas and Titan Image only support PNG and JPEG
 						let detectedMimeType = binaryData.mimeType || 'application/octet-stream';
 
 						// If MIME type is not detected, try to detect from magic bytes
-						if (detectedMimeType === 'application/octet-stream' && sourceImageBase64) {
-							// Decode first few bytes to check magic numbers
-							const firstBytes = Buffer.from(sourceImageBase64.substring(0, 16), 'base64');
-							if (firstBytes[0] === 0xFF && firstBytes[1] === 0xD8 && firstBytes[2] === 0xFF) {
+						if (detectedMimeType === 'application/octet-stream' && binaryBuffer.length > 4) {
+							if (binaryBuffer[0] === 0xFF && binaryBuffer[1] === 0xD8 && binaryBuffer[2] === 0xFF) {
 								detectedMimeType = 'image/jpeg';
-							} else if (firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47) {
+							} else if (binaryBuffer[0] === 0x89 && binaryBuffer[1] === 0x50 && binaryBuffer[2] === 0x4E && binaryBuffer[3] === 0x47) {
 								detectedMimeType = 'image/png';
 							}
 						}
@@ -1092,7 +1093,8 @@ export class AwsBedrockAssumeRole implements INodeType {
 						console.log('[AWS Bedrock] Source image validated:', {
 							originalMimeType: binaryData.mimeType,
 							detectedMimeType,
-							dataLength: sourceImageBase64?.length || 0,
+							bufferLength: binaryBuffer.length,
+							base64Length: sourceImageBase64.length,
 						});
 					}
 
@@ -1104,7 +1106,9 @@ export class AwsBedrockAssumeRole implements INodeType {
 						if (maskImageBinaryProperty) {
 							const item = items[i];
 							if (item.binary && item.binary[maskImageBinaryProperty]) {
-								maskImageBase64 = item.binary[maskImageBinaryProperty].data;
+								// Use getBinaryDataBuffer to properly retrieve binary data
+								const maskBuffer = await this.helpers.getBinaryDataBuffer(i, maskImageBinaryProperty);
+								maskImageBase64 = maskBuffer.toString('base64');
 							}
 						}
 
@@ -1251,16 +1255,17 @@ export class AwsBedrockAssumeRole implements INodeType {
 							);
 						}
 
-						const binaryData = item.binary[imageBinaryPropertyName] as {
-							data?: string;
-							mimeType?: string;
-						};
+						const binaryData = item.binary[imageBinaryPropertyName];
+
+						// Use getBinaryDataBuffer to properly retrieve binary data (handles filesystem storage)
+						const imageBuffer = await this.helpers.getBinaryDataBuffer(i, imageBinaryPropertyName);
+						const imageBase64 = imageBuffer.toString('base64');
 
 						messageContent = buildClaudeMessageContent({
 							inputType,
 							prompt,
 							binary: {
-								data: binaryData.data,
+								data: imageBase64,
 								mimeType: binaryData.mimeType,
 							},
 						});
