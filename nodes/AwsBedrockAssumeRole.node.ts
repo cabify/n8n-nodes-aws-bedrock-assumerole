@@ -166,8 +166,8 @@ export function buildImageGenerationRequestBody(args: {
 	taskType: ImageTaskType;
 	prompt: string;
 	negativePrompt?: string;
-	width: number;
-	height: number;
+	width?: number;
+	height?: number;
 	quality: 'standard' | 'premium';
 	numberOfImages: number;
 	seed?: number;
@@ -179,12 +179,21 @@ export function buildImageGenerationRequestBody(args: {
 	outpaintingMode?: 'DEFAULT' | 'PRECISE';
 	similarityStrength?: number;
 }): Record<string, unknown> {
+	// For INPAINTING, OUTPAINTING, and BACKGROUND_REMOVAL, width/height should NOT be included
+	// The output size will match the input image size automatically
+	const tasksWithoutDimensions: ImageTaskType[] = ['INPAINTING', 'OUTPAINTING', 'BACKGROUND_REMOVAL'];
+	const includeDimensions = !tasksWithoutDimensions.includes(args.taskType);
+
 	const imageGenerationConfig: Record<string, unknown> = {
-		width: args.width,
-		height: args.height,
 		quality: args.quality,
 		numberOfImages: args.numberOfImages,
 	};
+
+	// Only include width/height for TEXT_IMAGE and IMAGE_VARIATION
+	if (includeDimensions && args.width && args.height) {
+		imageGenerationConfig.width = args.width;
+		imageGenerationConfig.height = args.height;
+	}
 
 	// Add seed if provided and not 0 (0 means random)
 	if (args.seed && args.seed > 0) {
@@ -759,6 +768,10 @@ export class AwsBedrockAssumeRole implements INodeType {
 							'amazon.nova-canvas-v1:0',
 							'amazon.titan-image-generator-v2:0',
 						],
+						imageTaskType: [
+							'TEXT_IMAGE',
+							'IMAGE_VARIATION',
+						],
 					},
 				},
 			},
@@ -780,6 +793,10 @@ export class AwsBedrockAssumeRole implements INodeType {
 						modelId: [
 							'amazon.nova-canvas-v1:0',
 							'amazon.titan-image-generator-v2:0',
+						],
+						imageTaskType: [
+							'TEXT_IMAGE',
+							'IMAGE_VARIATION',
 						],
 					},
 				},
@@ -1045,6 +1062,34 @@ export class AwsBedrockAssumeRole implements INodeType {
 
 						const binaryData = item.binary[sourceImageBinaryProperty];
 						sourceImageBase64 = binaryData.data;
+
+						// Validate MIME type - Nova Canvas and Titan Image only support PNG and JPEG
+						let detectedMimeType = binaryData.mimeType || 'application/octet-stream';
+
+						// If MIME type is not detected, try to detect from magic bytes
+						if (detectedMimeType === 'application/octet-stream' && sourceImageBase64) {
+							// Decode first few bytes to check magic numbers
+							const firstBytes = Buffer.from(sourceImageBase64.substring(0, 16), 'base64');
+							if (firstBytes[0] === 0xFF && firstBytes[1] === 0xD8 && firstBytes[2] === 0xFF) {
+								detectedMimeType = 'image/jpeg';
+							} else if (firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47) {
+								detectedMimeType = 'image/png';
+							}
+						}
+
+						const supportedImageTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+						if (!supportedImageTypes.includes(detectedMimeType)) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`The detected file MIME type "${detectedMimeType}" is not supported by this model. Supported types: PNG, JPEG. Try converting your image to PNG or JPEG format.`,
+							);
+						}
+
+						console.log('[AWS Bedrock] Source image validated:', {
+							originalMimeType: binaryData.mimeType,
+							detectedMimeType,
+							dataLength: sourceImageBase64?.length || 0,
+						});
 					}
 
 					// Get mask parameters for inpainting/outpainting
