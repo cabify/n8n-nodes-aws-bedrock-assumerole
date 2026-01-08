@@ -1,3 +1,9 @@
+## [1.3.3] - 2025-12-29
+
+### Fixed
+- Move @langchain/core from dependencies to peerDependencies to prevent installation conflicts with n8n's built-in @langchain/core
+- Fix issue where SVG icons were not appearing due to incomplete package installation caused by dependency conflicts
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
