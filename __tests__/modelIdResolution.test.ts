@@ -299,15 +299,13 @@ describe('buildImageGenerationRequestBody', () => {
 	});
 
 	// INPAINTING tests
-	it('builds INPAINTING request body with maskPrompt', () => {
+	it('builds INPAINTING request body with maskPrompt (no width/height)', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
 			taskType: 'INPAINTING',
 			prompt: 'Add a red hat',
 			sourceImageBase64: 'base64-source-image',
 			maskPrompt: 'the head',
-			width: 1024,
-			height: 1024,
 			quality: 'standard',
 			numberOfImages: 1,
 		});
@@ -317,9 +315,12 @@ describe('buildImageGenerationRequestBody', () => {
 		expect((result.inPaintingParams as any).text).toBe('Add a red hat');
 		expect((result.inPaintingParams as any).maskPrompt).toBe('the head');
 		expect((result.inPaintingParams as any).maskImage).toBeUndefined();
+		// INPAINTING should NOT include width/height - output matches input image size
+		expect((result.imageGenerationConfig as any).width).toBeUndefined();
+		expect((result.imageGenerationConfig as any).height).toBeUndefined();
 	});
 
-	it('builds INPAINTING request body with maskImage', () => {
+	it('builds INPAINTING request body with maskImage (no width/height)', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.titan-image-generator-v2:0',
 			taskType: 'INPAINTING',
@@ -327,8 +328,6 @@ describe('buildImageGenerationRequestBody', () => {
 			sourceImageBase64: 'base64-source-image',
 			maskImageBase64: 'base64-mask-image',
 			negativePrompt: 'blurry',
-			width: 512,
-			height: 512,
 			quality: 'premium',
 			numberOfImages: 1,
 		});
@@ -337,10 +336,13 @@ describe('buildImageGenerationRequestBody', () => {
 		expect((result.inPaintingParams as any).maskImage).toBe('base64-mask-image');
 		expect((result.inPaintingParams as any).maskPrompt).toBeUndefined();
 		expect((result.inPaintingParams as any).negativeText).toBe('blurry');
+		// INPAINTING should NOT include width/height - output matches input image size
+		expect((result.imageGenerationConfig as any).width).toBeUndefined();
+		expect((result.imageGenerationConfig as any).height).toBeUndefined();
 	});
 
 	// OUTPAINTING tests
-	it('builds OUTPAINTING request body with outpaintingMode', () => {
+	it('builds OUTPAINTING request body with outpaintingMode (no width/height)', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
 			taskType: 'OUTPAINTING',
@@ -348,8 +350,6 @@ describe('buildImageGenerationRequestBody', () => {
 			sourceImageBase64: 'base64-source-image',
 			maskPrompt: 'the sky',
 			outpaintingMode: 'PRECISE',
-			width: 1024,
-			height: 1024,
 			quality: 'standard',
 			numberOfImages: 1,
 		});
@@ -359,6 +359,9 @@ describe('buildImageGenerationRequestBody', () => {
 		expect((result.outPaintingParams as any).text).toBe('Extend the beach');
 		expect((result.outPaintingParams as any).maskPrompt).toBe('the sky');
 		expect((result.outPaintingParams as any).outPaintingMode).toBe('PRECISE');
+		// OUTPAINTING should NOT include width/height - output matches input image size
+		expect((result.imageGenerationConfig as any).width).toBeUndefined();
+		expect((result.imageGenerationConfig as any).height).toBeUndefined();
 	});
 
 	// IMAGE_VARIATION tests
@@ -382,14 +385,12 @@ describe('buildImageGenerationRequestBody', () => {
 	});
 
 	// BACKGROUND_REMOVAL tests
-	it('builds BACKGROUND_REMOVAL request body', () => {
+	it('builds BACKGROUND_REMOVAL request body (no width/height)', () => {
 		const result = buildImageGenerationRequestBody({
 			modelId: 'amazon.nova-canvas-v1:0',
 			taskType: 'BACKGROUND_REMOVAL',
 			prompt: '', // Not used for background removal
 			sourceImageBase64: 'base64-source-image',
-			width: 1024,
-			height: 1024,
 			quality: 'standard',
 			numberOfImages: 1,
 		});
