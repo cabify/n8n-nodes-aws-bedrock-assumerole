@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-aws-bedrock-assumerole",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "description": "n8n node for AWS Bedrock with AssumeRole authentication",
   "keywords": [
     "n8n-community-node-package",
@@ -9,7 +9,10 @@
     "bedrock",
     "claude",
     "ai",
-    "llm"
+    "llm",
+    "image-generation",
+    "nova-canvas",
+    "titan-image"
   ],
   "license": "MIT",
   "homepage": "https://github.com/cabify/n8n-nodes-aws-bedrock-assumerole",
