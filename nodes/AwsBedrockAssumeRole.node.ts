@@ -1037,8 +1037,12 @@ export class AwsBedrockAssumeRole implements INodeType {
 					imageTaskType = this.getNodeParameter('imageTaskType', i, 'TEXT_IMAGE') as ImageTaskType;
 
 					// Get image generation parameters
-					imageWidth = this.getNodeParameter('imageWidth', i) as number;
-					imageHeight = this.getNodeParameter('imageHeight', i) as number;
+					// Only get width/height for tasks that need them (TEXT_IMAGE, IMAGE_VARIATION)
+					const tasksRequiringDimensions: ImageTaskType[] = ['TEXT_IMAGE', 'IMAGE_VARIATION'];
+					if (tasksRequiringDimensions.includes(imageTaskType)) {
+						imageWidth = this.getNodeParameter('imageWidth', i) as number;
+						imageHeight = this.getNodeParameter('imageHeight', i) as number;
+					}
 					imageQuality = this.getNodeParameter('imageQuality', i) as 'standard' | 'premium';
 					numberOfImages = this.getNodeParameter('numberOfImages', i) as number;
 					imageSeed = this.getNodeParameter('imageSeed', i, 0) as number;
